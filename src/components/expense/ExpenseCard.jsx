@@ -7,7 +7,6 @@ import { useCurrency } from '../../context/CurrencyContext';
 export default function ExpenseCard({ expense, onEdit, onDelete }) {
   const { hostCurrency, homeCurrency } = useCurrency();
   const cat = CATEGORY_MAP[expense.category] || CATEGORY_MAP.other;
-  const iconLabel = cat.label.slice(0, 1).toUpperCase();
 
   return (
     <motion.div
@@ -23,9 +22,7 @@ export default function ExpenseCard({ expense, onEdit, onDelete }) {
         className="w-10 h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center text-lg shrink-0"
         style={{ backgroundColor: `${cat.color}20` }}
       >
-        <span className="text-sm font-semibold" style={{ color: cat.color }}>
-          {iconLabel}
-        </span>
+        {cat.icon}
       </div>
 
       {/* Details */}
@@ -35,7 +32,7 @@ export default function ExpenseCard({ expense, onEdit, onDelete }) {
             {expense.note || cat.label}
           </span>
           <span
-            className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 tracking-wide"
+            className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
             style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
           >
             {cat.label}

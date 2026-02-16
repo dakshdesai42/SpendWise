@@ -7,16 +7,10 @@ export default function CategoryBar({ categoryId, amount, maxAmount }) {
   const { hostCurrency } = useCurrency();
   const cat = CATEGORY_MAP[categoryId] || CATEGORY_MAP.other;
   const percent = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
-  const initial = cat.label.slice(0, 1).toUpperCase();
 
   return (
     <div className="flex items-center gap-3">
-      <span
-        className="w-7 h-7 rounded-md shrink-0 flex items-center justify-center text-[11px] font-semibold"
-        style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
-      >
-        {initial}
-      </span>
+      <span className="text-lg shrink-0">{cat.icon}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs font-medium text-text-secondary">{cat.label}</span>

@@ -118,10 +118,10 @@ export default function DashboardPage() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl bg-accent-secondary/8 border border-accent-secondary/20 p-3 mb-4 text-center"
+          className="rounded-xl bg-accent-secondary/10 border border-accent-secondary/20 p-3 mb-4 text-center"
         >
-          <p className="text-xs text-accent-secondary font-medium tracking-wide">
-            Demo mode - add Firebase credentials in .env to connect real data
+          <p className="text-xs text-accent-secondary font-medium">
+            Demo Mode — Add Firebase credentials to .env to connect your real data
           </p>
         </motion.div>
       )}
@@ -134,80 +134,80 @@ export default function DashboardPage() {
       >
         {/* Streak */}
         {streak > 0 && (
-          <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-orange-400/25 bg-orange-400/10">
+          <motion.div variants={itemVariants} className="flex items-center gap-2 px-1">
             <HiFire className="w-5 h-5 text-orange-400" />
-            <span className="text-sm font-semibold text-orange-300">{streak}-day streak</span>
+            <span className="text-sm font-medium text-orange-400">{streak} day streak!</span>
           </motion.div>
         )}
 
         {!loggedToday && !demoMode && recentExpenses.length > 0 && (
           <motion.div
             variants={itemVariants}
-            className="rounded-xl bg-accent-primary/10 border border-accent-primary/25 p-4 flex items-center justify-between"
+            className="rounded-xl bg-accent-primary/10 border border-accent-primary/20 p-4 flex items-center justify-between"
           >
             <div>
-              <p className="text-sm font-semibold text-text-primary">No expenses logged today</p>
-              <p className="text-xs text-text-secondary mt-0.5">Track a no-spend day or add a transaction.</p>
+              <p className="text-sm font-medium text-text-primary">Haven't logged anything today</p>
+              <p className="text-xs text-text-tertiary mt-0.5">Did you spend $0 or just forget?</p>
             </div>
             <button
               onClick={() => setShowExpenseForm(true)}
-              className="text-xs font-semibold text-accent-primary hover:underline shrink-0"
+              className="text-xs font-medium text-accent-primary hover:underline shrink-0"
             >
-              Add now
+              Quick add
             </button>
           </motion.div>
         )}
 
         {/* Stat Cards */}
-        <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
+        <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <GlassCard className="p-6">
-            <div className="flex items-center gap-3 mb-3.5">
-              <div className="p-2.5 rounded-xl bg-accent-primary/15 border border-accent-primary/20">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2.5 rounded-xl bg-accent-primary/15">
                 <HiBanknotes className="w-5 h-5 text-accent-primary" />
               </div>
-              <span className="text-sm font-medium text-text-secondary">Spent this month</span>
+              <span className="text-sm text-text-secondary">Spent This Month</span>
             </div>
-            <p className="text-3xl font-bold tracking-tight text-text-primary">
+            <p className="text-2xl font-bold text-text-primary">
               {formatCurrency(totalSpent, hostCurrency)}
             </p>
-            <p className="text-sm text-text-secondary mt-1.5">
+            <p className="text-sm text-text-tertiary mt-1">
               ~{formatCurrency(totalSpentHome, homeCurrency)}
             </p>
           </GlassCard>
 
           <GlassCard className="p-6">
-            <div className="flex items-center gap-3 mb-3.5">
-              <div className="p-2.5 rounded-xl bg-accent-secondary/15 border border-accent-secondary/20">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2.5 rounded-xl bg-accent-secondary/15">
                 <HiHomeIcon className="w-5 h-5 text-accent-secondary" />
               </div>
-              <span className="text-sm font-medium text-text-secondary">Home currency total</span>
+              <span className="text-sm text-text-secondary">In Home Currency</span>
             </div>
-            <p className="text-3xl font-bold tracking-tight text-text-primary">
+            <p className="text-2xl font-bold text-text-primary">
               {formatCurrency(totalSpentHome, homeCurrency)}
             </p>
-            <p className="text-sm text-text-secondary mt-1.5">
+            <p className="text-sm text-text-tertiary mt-1">
               {summary?.transactionCount || 0} transactions
             </p>
           </GlassCard>
 
           <GlassCard className="p-6">
-            <div className="flex items-center gap-3 mb-3.5">
-              <div className={`p-2.5 rounded-xl border ${budgetPercent > 90 ? 'bg-danger/15 border-danger/25' : budgetPercent > 75 ? 'bg-warning/15 border-warning/25' : 'bg-success/15 border-success/20'}`}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`p-2.5 rounded-xl ${budgetPercent > 90 ? 'bg-danger/15' : budgetPercent > 75 ? 'bg-warning/15' : 'bg-success/15'}`}>
                 {budgetPercent > 90 ? (
                   <HiArrowTrendingUp className="w-5 h-5 text-danger" />
                 ) : (
                   <HiArrowTrendingDown className="w-5 h-5 text-success" />
                 )}
               </div>
-              <span className="text-sm font-medium text-text-secondary">Budget remaining</span>
+              <span className="text-sm text-text-secondary">Budget Remaining</span>
             </div>
-            <p className="text-3xl font-bold tracking-tight text-text-primary">
+            <p className="text-2xl font-bold text-text-primary">
               {budgetRemaining !== null
                 ? formatCurrency(Math.max(budgetRemaining, 0), hostCurrency)
                 : 'No budget'}
             </p>
             {budget && (
-              <p className="text-sm text-text-secondary mt-1.5">
+              <p className="text-sm text-text-tertiary mt-1">
                 {Math.round(budgetPercent)}% used of {formatCurrency(budget.overall, hostCurrency)}
               </p>
             )}
@@ -218,7 +218,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <motion.div variants={itemVariants}>
             <GlassCard>
-              <h3 className="text-sm font-semibold text-text-primary mb-4">Spending by category</h3>
+              <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-4">Spending by Category</h3>
               <SpendingDonut
                 categoryTotals={summary?.categoryTotals || {}}
                 total={totalSpent}
@@ -228,7 +228,7 @@ export default function DashboardPage() {
 
           <motion.div variants={itemVariants}>
             <GlassCard>
-              <h3 className="text-sm font-semibold text-text-primary mb-4">Budget progress</h3>
+              <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-4">Budget Progress</h3>
               <BudgetOverview
                 budget={budget}
                 categoryTotals={summary?.categoryTotals || {}}
@@ -240,7 +240,7 @@ export default function DashboardPage() {
         {/* Monthly Trend */}
         <motion.div variants={itemVariants}>
           <GlassCard>
-            <h3 className="text-sm font-semibold text-text-primary mb-4">Monthly spending trend</h3>
+            <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-4">Monthly Spending Trend</h3>
             <MonthlyTrend data={trendData} />
           </GlassCard>
         </motion.div>
@@ -249,9 +249,9 @@ export default function DashboardPage() {
         <motion.div variants={itemVariants}>
           <GlassCard>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-text-primary">Recent expenses</h3>
+              <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary">Recent Expenses</h3>
             </div>
-            <ExpenseList expenses={recentExpenses} emptyMessage="No expenses yet - add your first one." />
+            <ExpenseList expenses={recentExpenses} emptyMessage="No expenses yet — add your first one!" />
           </GlassCard>
         </motion.div>
       </motion.div>
