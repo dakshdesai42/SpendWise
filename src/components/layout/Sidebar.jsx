@@ -16,7 +16,7 @@ const navItems = [
 
 export default function Sidebar() {
   return (
-    <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-bg-secondary border-r border-white/[0.06] p-6">
+    <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-bg-secondary border-r border-white/[0.10] p-6">
       {/* Logo */}
       <div className="mb-10">
         <h1 className="text-2xl font-bold gradient-text">SpendWise</h1>
@@ -32,8 +32,8 @@ export default function Sidebar() {
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 isActive
-                  ? 'bg-accent-primary/15 text-accent-primary'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.04]'
+                  ? 'bg-accent-primary/12 text-accent-primary'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.06]'
               }`
             }
           >
@@ -54,7 +54,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="pt-6 border-t border-white/[0.06]">
+      <div className="pt-6 border-t border-white/[0.10]">
         <p className="text-xs text-text-tertiary text-center">
           Made for students abroad
         </p>

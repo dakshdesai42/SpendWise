@@ -21,10 +21,10 @@ export default function GlassCard({ children, className, animate = true, hover =
   return (
     <Component
       className={clsx(
-        'rounded-2xl border border-white/[0.08]',
-        'bg-white/[0.04] backdrop-blur-xl',
-        'p-6 shadow-lg shadow-black/20',
-        hover && 'cursor-pointer transition-colors duration-300 hover:bg-white/[0.08]',
+        'rounded-2xl border border-white/[0.10]',
+        'bg-white/[0.06] backdrop-blur-xl',
+        'p-6 shadow-xl shadow-black/25',
+        hover && 'cursor-pointer transition-colors duration-300 hover:bg-white/[0.10]',
         className
       )}
       {...animationProps}

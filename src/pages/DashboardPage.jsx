@@ -130,7 +130,7 @@ export default function DashboardPage() {
         variants={containerVariants}
         initial="initial"
         animate="animate"
-        className="space-y-6 mt-4"
+        className="space-y-6"
       >
         {/* Streak */}
         {streak > 0 && (
@@ -160,7 +160,7 @@ export default function DashboardPage() {
 
         {/* Stat Cards */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <GlassCard className="p-5">
+          <GlassCard className="p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2.5 rounded-xl bg-accent-primary/15">
                 <HiBanknotes className="w-5 h-5 text-accent-primary" />
@@ -175,7 +175,7 @@ export default function DashboardPage() {
             </p>
           </GlassCard>
 
-          <GlassCard className="p-5">
+          <GlassCard className="p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2.5 rounded-xl bg-accent-secondary/15">
                 <HiHomeIcon className="w-5 h-5 text-accent-secondary" />
@@ -190,7 +190,7 @@ export default function DashboardPage() {
             </p>
           </GlassCard>
 
-          <GlassCard className="p-5">
+          <GlassCard className="p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className={`p-2.5 rounded-xl ${budgetPercent > 90 ? 'bg-danger/15' : budgetPercent > 75 ? 'bg-warning/15' : 'bg-success/15'}`}>
                 {budgetPercent > 90 ? (
@@ -218,7 +218,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <motion.div variants={itemVariants}>
             <GlassCard>
-              <h3 className="text-sm font-medium text-text-secondary mb-4">Spending by Category</h3>
+              <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-4">Spending by Category</h3>
               <SpendingDonut
                 categoryTotals={summary?.categoryTotals || {}}
                 total={totalSpent}
@@ -228,7 +228,7 @@ export default function DashboardPage() {
 
           <motion.div variants={itemVariants}>
             <GlassCard>
-              <h3 className="text-sm font-medium text-text-secondary mb-4">Budget Progress</h3>
+              <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-4">Budget Progress</h3>
               <BudgetOverview
                 budget={budget}
                 categoryTotals={summary?.categoryTotals || {}}
@@ -240,7 +240,7 @@ export default function DashboardPage() {
         {/* Monthly Trend */}
         <motion.div variants={itemVariants}>
           <GlassCard>
-            <h3 className="text-sm font-medium text-text-secondary mb-4">Monthly Spending Trend</h3>
+            <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-4">Monthly Spending Trend</h3>
             <MonthlyTrend data={trendData} />
           </GlassCard>
         </motion.div>
@@ -249,7 +249,7 @@ export default function DashboardPage() {
         <motion.div variants={itemVariants}>
           <GlassCard>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-text-secondary">Recent Expenses</h3>
+              <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary">Recent Expenses</h3>
             </div>
             <ExpenseList expenses={recentExpenses} emptyMessage="No expenses yet — add your first one!" />
           </GlassCard>

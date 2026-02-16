@@ -29,7 +29,7 @@ export default function BudgetProgressBar({ spent, budget, label, color, showAmo
           )}
         </div>
       )}
-      <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
+      <div className="h-2 rounded-full bg-white/[0.10] overflow-hidden">
         <motion.div
           className={clsx(
             'h-full rounded-full',

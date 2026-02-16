@@ -21,7 +21,7 @@ export default function Header({ onAddExpense }) {
         <motion.h2
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="text-xl lg:text-2xl font-bold text-text-primary"
+          className="text-lg lg:text-xl font-bold text-text-primary"
         >
           {getGreeting()}, {firstName}
         </motion.h2>

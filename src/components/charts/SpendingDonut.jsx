@@ -63,8 +63,8 @@ export default function SpendingDonut({ categoryTotals, total, currency }) {
       </ResponsiveContainer>
       {/* Center label */}
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <p className="text-xs text-text-tertiary">Total</p>
-        <p className="text-xl font-bold text-text-primary">
+        <p className="text-[11px] uppercase tracking-wider font-medium text-text-tertiary">Total</p>
+        <p className="text-lg font-bold text-text-primary">
           {formatCurrency(total || 0, curr)}
         </p>
       </div>

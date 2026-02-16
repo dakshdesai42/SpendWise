@@ -13,7 +13,7 @@ export default function BudgetOverview({ budget, categoryTotals }) {
   const totalSpent = Object.values(categoryTotals || {}).reduce((s, v) => s + v, 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <BudgetProgressBar
         spent={totalSpent}
         budget={budget.overall}
@@ -21,7 +21,7 @@ export default function BudgetOverview({ budget, categoryTotals }) {
       />
 
       {budget.categories && Object.keys(budget.categories).length > 0 && (
-        <div className="space-y-3 pt-2">
+        <div className="space-y-4 pt-2">
           {CATEGORIES.filter((cat) => budget.categories[cat.id] > 0).map((cat) => (
             <BudgetProgressBar
               key={cat.id}

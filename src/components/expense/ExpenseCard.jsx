@@ -15,7 +15,7 @@ export default function ExpenseCard({ expense, onEdit, onDelete }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -100 }}
       whileHover={{ backgroundColor: 'rgba(255,255,255,0.04)' }}
-      className="flex items-center gap-4 p-4 rounded-xl border border-white/[0.04] transition-colors group"
+      className="flex items-center gap-4 p-4 rounded-xl border border-white/[0.06] transition-colors group"
     >
       {/* Category icon */}
       <div
