@@ -27,7 +27,7 @@ export default function BudgetOverview({ budget, categoryTotals }) {
               key={cat.id}
               spent={categoryTotals?.[cat.id] || 0}
               budget={budget.categories[cat.id]}
-              label={`${cat.icon} ${cat.label}`}
+              label={cat.label}
               color={cat.color}
             />
           ))}

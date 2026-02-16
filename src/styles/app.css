@@ -40,13 +40,17 @@
 }
 
 body {
-  background-color: var(--color-bg-primary);
+  background:
+    radial-gradient(1200px 500px at -10% -10%, rgba(139, 92, 246, 0.12), transparent 60%),
+    radial-gradient(900px 420px at 110% 0%, rgba(6, 182, 212, 0.09), transparent 58%),
+    var(--color-bg-primary);
   color: var(--color-text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
   line-height: 1.45;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
@@ -55,10 +59,10 @@ body {
 
 /* Glass effect utility */
 .glass {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.055);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .glass-hover:hover {

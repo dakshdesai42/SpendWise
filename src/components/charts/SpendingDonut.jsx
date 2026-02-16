@@ -28,7 +28,7 @@ export default function SpendingDonut({ categoryTotals, total, currency }) {
       rawValue: categoryTotals[cat.id],
       value: formatCurrency(categoryTotals[cat.id], curr),
       color: cat.color,
-      icon: cat.icon,
+      percentage: total > 0 ? (categoryTotals[cat.id] / total) * 100 : 0,
     }));
 
   if (data.length === 0) {
@@ -40,33 +40,48 @@ export default function SpendingDonut({ categoryTotals, total, currency }) {
   }
 
   return (
-    <div className="relative">
-      <ResponsiveContainer width="100%" height={260}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={70}
-            outerRadius={110}
-            paddingAngle={3}
-            dataKey="rawValue"
-            animationBegin={0}
-            animationDuration={800}
-          >
-            {data.map((entry, index) => (
-              <Cell key={index} fill={entry.color} stroke="transparent" />
-            ))}
-          </Pie>
-          <Tooltip content={<CustomTooltip />} />
-        </PieChart>
-      </ResponsiveContainer>
-      {/* Center label */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <p className="text-[11px] uppercase tracking-wider font-medium text-text-tertiary">Total</p>
-        <p className="text-lg font-bold text-text-primary">
-          {formatCurrency(total || 0, curr)}
-        </p>
+    <div className="grid grid-cols-1 xl:grid-cols-[1fr_220px] gap-2 xl:gap-4 items-center">
+      <div className="relative">
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={72}
+              outerRadius={108}
+              paddingAngle={2}
+              dataKey="rawValue"
+              animationBegin={0}
+              animationDuration={800}
+            >
+              {data.map((entry, index) => (
+                <Cell key={index} fill={entry.color} stroke="transparent" />
+              ))}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <p className="text-[11px] tracking-wide font-semibold text-text-secondary">Total spent</p>
+          <p className="text-lg font-bold text-text-primary">
+            {formatCurrency(total || 0, curr)}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2 px-2 xl:px-0">
+        {data.slice(0, 6).map((entry) => (
+          <div key={entry.name} className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+              <span className="text-xs text-text-secondary truncate">{entry.name}</span>
+            </div>
+            <span className="text-xs font-semibold text-text-primary shrink-0">
+              {Math.round(entry.percentage)}%
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

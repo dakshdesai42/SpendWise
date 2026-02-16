@@ -35,22 +35,22 @@ export default function MonthlyTrend({ data }) {
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 22, right: 16, left: -12, bottom: 4 }}>
         <defs>
           <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+            <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.28} />
+            <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
         <XAxis
           dataKey="month"
-          tick={{ fill: '#64748b', fontSize: 12 }}
+          tick={{ fill: '#7f8da6', fontSize: 12 }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
-          tick={{ fill: '#64748b', fontSize: 12 }}
+          tick={{ fill: '#7f8da6', fontSize: 12 }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v) => `$${v}`}
@@ -60,9 +60,9 @@ export default function MonthlyTrend({ data }) {
           type="monotone"
           dataKey="total"
           stroke="#8b5cf6"
-          strokeWidth={2.5}
+          strokeWidth={3}
           fill="url(#trendGradient)"
-          animationDuration={1000}
+          animationDuration={900}
         />
       </AreaChart>
     </ResponsiveContainer>
