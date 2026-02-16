@@ -17,23 +17,23 @@ const navItems = [
 export default function BottomNav() {
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-bg-secondary/95 backdrop-blur-xl border-t border-white/[0.10] px-2 pb-safe">
-      <div className="flex items-center justify-around h-16">
+      <div className="flex items-center justify-around h-[4.4rem]">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors ${
+              `flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all duration-200 ${
                 isActive
-                  ? 'text-accent-primary bg-accent-primary/10'
-                  : 'text-text-tertiary'
+                  ? 'text-accent-primary bg-accent-primary/12'
+                  : 'text-text-tertiary hover:text-text-secondary'
               }`
             }
           >
             {({ isActive }) => (
               <>
                 <div className="relative">
-                  <item.icon className="w-6 h-6" />
+                  <item.icon className="w-5 h-5" />
                   {isActive && (
                     <motion.div
                       layoutId="bottomnav-indicator"
@@ -41,7 +41,7 @@ export default function BottomNav() {
                     />
                   )}
                 </div>
-                <span className="text-[11px] font-medium">{item.label}</span>
+                <span className="text-[11px] font-medium tracking-wide">{item.label}</span>
               </>
             )}
           </NavLink>

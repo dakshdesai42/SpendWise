@@ -99,8 +99,8 @@ export default function ExpensesPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between py-4 px-4 lg:px-0">
-        <h2 className="text-xl lg:text-2xl font-bold text-text-primary">Expenses</h2>
+      <div className="flex items-start sm:items-center justify-between gap-3 py-3 md:py-4 px-1 sm:px-0">
+        <h2 className="text-xl lg:text-2xl font-bold tracking-tight text-text-primary">Expenses</h2>
         <div className="flex gap-2">
           <Button
             variant="secondary"
@@ -120,7 +120,7 @@ export default function ExpensesPage() {
       </div>
 
       {/* Month Selector */}
-      <div className="flex items-center justify-center gap-4 mb-6">
+      <div className="flex items-center justify-center gap-4 mb-5 md:mb-6">
         <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-white/[0.06] text-text-secondary transition-colors">
           <HiChevronLeft className="w-5 h-5" />
         </button>
@@ -142,7 +142,7 @@ export default function ExpensesPage() {
       </div>
 
       {/* Category Filter */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-none px-4 lg:px-0">
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-none px-1 sm:px-0">
         <button
           onClick={() => setFilter('all')}
           className={clsx(

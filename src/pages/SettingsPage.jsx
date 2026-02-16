@@ -70,16 +70,16 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <div className="py-4 px-4 lg:px-0">
-        <h2 className="text-xl lg:text-2xl font-bold text-text-primary">Settings</h2>
-        <p className="text-sm text-text-tertiary mt-0.5">Manage your preferences</p>
+      <div className="py-3 md:py-4 px-1 sm:px-0">
+        <h2 className="text-xl lg:text-2xl font-bold tracking-tight text-text-primary">Settings</h2>
+        <p className="text-sm text-text-secondary mt-1">Manage your preferences</p>
       </div>
 
       <motion.div
         variants={containerVariants}
         initial="initial"
         animate="animate"
-        className="space-y-6 mt-2"
+        className="space-y-6 mt-3"
       >
         {/* Account */}
         <motion.div variants={itemVariants}>

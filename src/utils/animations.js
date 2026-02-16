@@ -6,8 +6,8 @@ export const pageVariants = {
 
 export const pageTransition = {
   type: 'tween',
-  ease: 'easeInOut',
-  duration: 0.3,
+  ease: 'easeOut',
+  duration: 0.28,
 };
 
 export const containerVariants = {
@@ -19,12 +19,12 @@ export const containerVariants = {
 
 export const itemVariants = {
   initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
 };
 
 export const fadeIn = {
   initial: { opacity: 0 },
-  animate: { opacity: 1, transition: { duration: 0.4 } },
+  animate: { opacity: 1, transition: { duration: 0.3 } },
 };
 
 export const scaleIn = {
@@ -34,7 +34,7 @@ export const scaleIn = {
 
 export const slideUp = {
   initial: { opacity: 0, y: 40 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
 };
 
 export const cardHover = {
@@ -67,6 +67,6 @@ export const modalOverlayVariants = {
 
 export const modalContentVariants = {
   initial: { opacity: 0, scale: 0.95, y: 20 },
-  animate: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
-  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } },
+  animate: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.28, ease: 'easeOut' } },
+  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2, ease: 'easeOut' } },
 };

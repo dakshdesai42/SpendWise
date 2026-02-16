@@ -104,12 +104,12 @@ export default function SignupPage() {
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.45 }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="text-center mb-8">
+        <div className="text-center mb-7">
           <h1 className="text-4xl font-bold gradient-text mb-2">SpendWise</h1>
-          <p className="text-text-tertiary">Start tracking your spending abroad</p>
+          <p className="text-text-secondary">Start tracking your spending abroad</p>
         </div>
 
         <GlassCard animate={false} className="space-y-6">
@@ -123,7 +123,7 @@ export default function SignupPage() {
             <>
               <div className="text-center">
                 <h2 className="text-xl font-semibold text-text-primary">Create account</h2>
-                <p className="text-sm text-text-tertiary mt-1">Step 1 of 2 — Your details</p>
+                <p className="text-sm text-text-secondary mt-1">Step 1 of 2 - Your details</p>
               </div>
 
               <form onSubmit={handleNext} className="space-y-4">
@@ -159,8 +159,8 @@ export default function SignupPage() {
             <>
               <div className="text-center">
                 <h2 className="text-xl font-semibold text-text-primary">Your currencies</h2>
-                <p className="text-sm text-text-tertiary mt-1">
-                  Step 2 of 2 — We'll show every expense in both
+                <p className="text-sm text-text-secondary mt-1">
+                  Step 2 of 2 - We'll show every expense in both
                 </p>
               </div>
 

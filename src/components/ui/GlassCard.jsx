@@ -8,23 +8,24 @@ export default function GlassCard({ children, className, animate = true, hover =
     ? {
         initial: { opacity: 0, y: 20 },
         animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.4, ease: 'easeOut' },
+        transition: { duration: 0.3, ease: 'easeOut' },
       }
     : {};
 
   const hoverProps = hover
     ? {
-        whileHover: { scale: 1.02, transition: { type: 'spring', stiffness: 300 } },
+        whileHover: { y: -2, transition: { type: 'spring', stiffness: 260, damping: 20 } },
       }
     : {};
 
   return (
     <Component
       className={clsx(
-        'rounded-2xl border border-white/[0.10]',
-        'bg-white/[0.06] backdrop-blur-xl',
-        'p-6 shadow-xl shadow-black/25',
-        hover && 'cursor-pointer transition-colors duration-300 hover:bg-white/[0.10]',
+        'rounded-2xl border border-white/[0.12]',
+        'bg-white/[0.065] backdrop-blur-xl',
+        'p-5 md:p-6 shadow-xl shadow-black/20',
+        'transition-colors duration-200',
+        hover && 'cursor-pointer hover:bg-white/[0.09]',
         className
       )}
       {...animationProps}

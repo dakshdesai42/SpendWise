@@ -78,10 +78,10 @@ export default function BudgetsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between py-4 px-4 lg:px-0">
+      <div className="flex items-start sm:items-center justify-between gap-3 py-3 md:py-4 px-1 sm:px-0">
         <div>
-          <h2 className="text-xl lg:text-2xl font-bold text-text-primary">Budgets</h2>
-          <p className="text-sm text-text-tertiary">{formatMonth(currentMonth)}</p>
+          <h2 className="text-xl lg:text-2xl font-bold tracking-tight text-text-primary">Budgets</h2>
+          <p className="text-sm text-text-secondary mt-1">{formatMonth(currentMonth)}</p>
         </div>
         <Button
           onClick={() => setShowForm(true)}
@@ -105,7 +105,7 @@ export default function BudgetsPage() {
           variants={containerVariants}
           initial="initial"
           animate="animate"
-          className="space-y-6 mt-4"
+          className="space-y-6 mt-3 md:mt-4"
         >
           {/* Overall Budget */}
           <motion.div variants={itemVariants}>
@@ -127,7 +127,7 @@ export default function BudgetsPage() {
           {/* Category Budgets */}
           {budget.categories && Object.keys(budget.categories).some((k) => budget.categories[k] > 0) && (
             <motion.div variants={itemVariants}>
-              <h3 className="text-sm font-medium text-text-secondary mb-4 px-4 lg:px-0">Category Budgets</h3>
+              <h3 className="text-sm font-medium text-text-secondary mb-4 px-1 sm:px-0">Category Budgets</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {CATEGORIES.filter((cat) => budget.categories[cat.id] > 0).map((cat) => (
                   <BudgetCard

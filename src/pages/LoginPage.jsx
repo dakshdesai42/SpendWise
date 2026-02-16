@@ -65,19 +65,19 @@ export default function LoginPage() {
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.45 }}
         className="w-full max-w-md relative z-10"
       >
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-7">
           <h1 className="text-4xl font-bold gradient-text mb-2">SpendWise</h1>
-          <p className="text-text-tertiary">Track your spending abroad</p>
+          <p className="text-text-secondary">Track your spending abroad</p>
         </div>
 
         <GlassCard animate={false} className="space-y-6">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-text-primary">Welcome back</h2>
-            <p className="text-sm text-text-tertiary mt-1">Sign in to your account</p>
+            <p className="text-sm text-text-secondary mt-1">Sign in to your account</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

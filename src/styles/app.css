@@ -13,8 +13,8 @@
 
   /* Text colors */
   --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-tertiary: #64748b;
+  --color-text-secondary: #a7b3c9;
+  --color-text-tertiary: #7f8da6;
 
   /* Status colors */
   --color-success: #10b981;
@@ -46,6 +46,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  line-height: 1.45;
 }
 
 #root {
@@ -123,6 +124,27 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
+}
+
+/* Keyboard focus visibility */
+:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.55);
+  outline-offset: 2px;
+}
+
+/* Text selection */
+::selection {
+  background: rgba(139, 92, 246, 0.28);
+  color: #f8fafc;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Recharts overrides for dark theme */

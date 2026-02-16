@@ -27,7 +27,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 md:p-6"
           {...modalOverlayVariants}
         >
           {/* Backdrop */}
@@ -41,16 +41,16 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
 
           {/* Content */}
           <motion.div
-            className={`relative w-full ${sizeClasses[size]} rounded-2xl border border-white/[0.08] bg-bg-secondary p-6 shadow-2xl`}
+            className={`relative w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto rounded-2xl border border-white/[0.12] bg-bg-secondary/95 p-5 md:p-6 shadow-2xl`}
             {...modalContentVariants}
           >
             {/* Header */}
             {title && (
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+                <h2 className="text-base md:text-lg font-semibold text-text-primary">{title}</h2>
                 <button
                   onClick={onClose}
-                  className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-white/[0.06] transition-colors"
+                  className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/35"
                 >
                   <HiXMark className="w-5 h-5" />
                 </button>

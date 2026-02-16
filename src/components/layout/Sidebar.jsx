@@ -16,30 +16,32 @@ const navItems = [
 
 export default function Sidebar() {
   return (
-    <aside className="hidden lg:flex flex-col w-64 min-h-screen bg-bg-secondary border-r border-white/[0.10] p-6">
+    <aside className="hidden lg:flex flex-col w-72 min-h-screen bg-bg-secondary border-r border-white/[0.10] px-6 py-7">
       {/* Logo */}
-      <div className="mb-10">
-        <h1 className="text-2xl font-bold gradient-text">SpendWise</h1>
-        <p className="text-xs text-text-tertiary mt-1">Track smart, spend wise</p>
+      <div className="mb-9">
+        <h1 className="text-[1.7rem] font-bold tracking-tight gradient-text">SpendWise</h1>
+        <p className="text-xs text-text-secondary mt-1.5">Track smart, spend wise</p>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1">
+      <nav className="flex-1 space-y-1.5">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+              `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                 isActive
-                  ? 'bg-accent-primary/12 text-accent-primary'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.06]'
+                  ? 'bg-accent-primary/14 text-accent-primary border border-accent-primary/20'
+                  : 'text-text-secondary border border-transparent hover:text-text-primary hover:bg-white/[0.06]'
               }`
             }
           >
             {({ isActive }) => (
               <>
-                <item.icon className="w-5 h-5" />
+                <span className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center shrink-0">
+                  <item.icon className="w-5 h-5" />
+                </span>
                 <span>{item.label}</span>
                 {isActive && (
                   <motion.div
@@ -55,7 +57,7 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="pt-6 border-t border-white/[0.10]">
-        <p className="text-xs text-text-tertiary text-center">
+        <p className="text-xs text-text-secondary text-center">
           Made for students abroad
         </p>
       </div>
