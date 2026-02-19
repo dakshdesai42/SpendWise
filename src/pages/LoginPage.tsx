@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FcGoogle } from 'react-icons/fc';
 import { HiEnvelope, HiLockClosed } from 'react-icons/hi2';
-import { signIn, signInWithGoogle } from '../services/auth';
+import { signIn, signInWithGoogle, resetPassword } from '../services/auth';
 import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -51,6 +52,28 @@ export default function LoginPage() {
       }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!email.trim()) {
+      toast.error('Enter your email first to reset password');
+      return;
+    }
+
+    setResettingPassword(true);
+    try {
+      await resetPassword(email.trim());
+      toast.success('Password reset email sent. Check your inbox');
+    } catch (err: any) {
+      const messages: Record<string, string> = {
+        'auth/user-not-found': 'No account found with this email',
+        'auth/invalid-email': 'Invalid email address',
+        'auth/too-many-requests': 'Too many attempts. Try again later',
+      };
+      toast.error(messages[err.code] || 'Failed to send password reset email');
+    } finally {
+      setResettingPassword(false);
     }
   }
 
@@ -97,6 +120,16 @@ export default function LoginPage() {
               onChange={(e: any) => setPassword(e.target.value)}
               icon={<HiLockClosed className="w-4 h-4" />}
             />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={resettingPassword}
+                className="text-xs text-accent-primary hover:underline disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {resettingPassword ? 'Sending reset email...' : 'Forgot password?'}
+              </button>
+            </div>
             <Button type="submit" loading={loading} className="w-full" size="lg">
               Sign In
             </Button>

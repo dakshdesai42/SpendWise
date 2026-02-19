@@ -39,8 +39,8 @@ export default function MonthlyTrend({ data }: { data: TrendDataPoint[] }) {
       <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
         <defs>
           <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+            <stop offset="5%" stopColor="#0A84FF" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#0A84FF" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -60,7 +60,7 @@ export default function MonthlyTrend({ data }: { data: TrendDataPoint[] }) {
         <Area
           type="monotone"
           dataKey="total"
-          stroke="#8b5cf6"
+          stroke="#0A84FF"
           strokeWidth={2.5}
           fill="url(#trendGradient)"
           animationDuration={1000}

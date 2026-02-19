@@ -82,13 +82,20 @@ function formatDateRange(transactions: ParsedTransaction[]) {
 async function processFile(file: File, hostCurrency: string) {
   const name = file.name.toLowerCase();
   if (name.endsWith('.pdf')) {
-    const text = await extractTextFromPDF(file);
-    if (!text.trim()) throw new Error('Could not extract text from PDF');
-    return parseWithAI(text, hostCurrency);
+    const text = await extractTextFromPDF(file).catch(() => '');
+    const parsed = await parseWithAI(text, hostCurrency, file);
+    if (!parsed.length) {
+      throw new Error('No recognizable transactions in this PDF. Try CSV export from your bank portal.');
+    }
+    return parsed;
   }
   if (name.endsWith('.csv') || name.endsWith('.txt')) {
     const text = await file.text();
-    return parseCSV(text);
+    const parsed = parseCSV(text);
+    if (!parsed.length) {
+      throw new Error('No recognizable transactions in CSV/TXT. Check date/amount columns.');
+    }
+    return parsed;
   }
   throw new Error(`Unsupported file type: ${file.name}`);
 }
@@ -152,6 +159,7 @@ export default function ImportModal({ isOpen, onClose, onImported }: { isOpen: b
     setProcessingFiles(validFiles.map((f) => ({ name: f.name, status: 'pending', count: 0 })));
 
     const allParsed = [];
+    const fileErrors: string[] = [];
 
     for (let i = 0; i < validFiles.length; i++) {
       const file = validFiles[i];
@@ -165,6 +173,8 @@ export default function ImportModal({ isOpen, onClose, onImported }: { isOpen: b
         );
       } catch (err) {
         console.error(`Error processing ${file.name}:`, err);
+        const message = err instanceof Error ? err.message : 'Unknown parsing error';
+        fileErrors.push(`${file.name}: ${message}`);
         setProcessingFiles((prev) =>
           prev.map((p, idx) =>
             idx === i ? { ...p, status: 'error' } : p
@@ -176,7 +186,7 @@ export default function ImportModal({ isOpen, onClose, onImported }: { isOpen: b
     const merged = mergeAndDeduplicate(allParsed);
 
     if (merged.length === 0) {
-      toast.error('No transactions found in the uploaded files');
+      toast.error(fileErrors.length ? `Import failed: ${fileErrors[0]}` : 'No transactions found in the uploaded files');
       setStep('upload');
       return;
     }

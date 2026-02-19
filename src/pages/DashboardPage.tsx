@@ -43,11 +43,12 @@ export default function DashboardPage() {
   const [goalAmount, setGoalAmount] = useState('');
   const [goalDate, setGoalDate] = useState('');
   const [savingGoal, setSavingGoal] = useState(false);
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const currentMonth = getCurrentMonth();
 
   const {
     recentExpenses, summary, budget, goals, upcomingBills,
-    weeklyReview, trendData, isLoading: loading
+    weeklyReview, trendData, isLoading: loading, hasError, errorMessage, debugStatus
   } = useDashboardData(user?.uid, currentMonth, demoMode);
 
   const { mutateAsync: addExpenseMutate } = useAddExpense();
@@ -60,6 +61,15 @@ export default function DashboardPage() {
       autoPostRecurring({ userId: user.uid, month: currentMonth });
     }
   }, [user?.uid, currentMonth, demoMode, autoPostRecurring]);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => setLoadingTimedOut(true), 12000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   // Register this page's add-expense action with the global FAB
   useEffect(() => {
@@ -204,7 +214,7 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
     { id: 'budget', label: 'Budget' },
   ];
 
-  if (loading) {
+  if (loading && !loadingTimedOut) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <LoadingSpinner size="lg" />
@@ -222,6 +232,22 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
         animate="animate"
         className="space-y-12 md:space-y-14 mt-4 md:mt-5"
       >
+        {(hasError || loadingTimedOut) && !demoMode && (
+          <motion.div variants={itemVariants} className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
+            <p className="text-sm text-warning">
+              Some data could not be loaded from Firebase. Check Authentication/Firestore setup, then refresh.
+            </p>
+            {errorMessage && (
+              <p className="text-xs text-warning/90 mt-1 break-all">
+                {errorMessage}
+              </p>
+            )}
+            <p className="text-[11px] text-warning/80 mt-1 break-all">
+              {debugStatus}
+            </p>
+          </motion.div>
+        )}
+
         {(demoMode || streak > 0 || (!loggedToday && !demoMode && recentExpenses.length > 0)) && (
           <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-2.5">
             {demoMode && (

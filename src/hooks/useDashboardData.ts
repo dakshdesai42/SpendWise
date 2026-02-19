@@ -8,10 +8,19 @@ import {
 import { getBudget } from '../services/budgets';
 import { getRecurringExpenses, getUpcomingRecurringBills } from '../services/recurring';
 import { getGoals } from '../services/goals';
-import { format, subMonths, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
+import { format, subMonths, startOfWeek, endOfWeek, subWeeks, endOfDay } from 'date-fns';
 import { CATEGORY_MAP } from '../utils/constants';
 import { DEMO_EXPENSES, DEMO_SUMMARY, DEMO_BUDGET, DEMO_TREND, DEMO_RECURRING, DEMO_GOALS } from '../utils/demoData';
 import { Expense, WeeklyReview } from '../types/models';
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+            setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+        }),
+    ]);
+}
 
 function buildWeeklyReviewFromExpenses(thisWeekExpenses: Expense[] = [], prevWeekExpenses: Expense[] = []): WeeklyReview {
     const total = thisWeekExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
@@ -38,34 +47,36 @@ function buildWeeklyReviewFromExpenses(thisWeekExpenses: Expense[] = [], prevWee
 }
 
 export function useDashboardData(userId: string | undefined, currentMonth: string, demoMode: boolean = false) {
+    const queryTimeoutMs = 12000;
+
     // Queries
     const recentQuery = useQuery({
         queryKey: ['expenses', 'recent', userId, 5],
-        queryFn: () => getRecentExpenses(userId!, 5),
+        queryFn: () => withTimeout(getRecentExpenses(userId!, 5), queryTimeoutMs, 'Recent expenses'),
         enabled: !!userId && !demoMode,
     });
 
     const summaryQuery = useQuery({
         queryKey: ['expenses', 'summary', userId, currentMonth],
-        queryFn: () => getMonthlySummary(userId!, currentMonth),
+        queryFn: () => withTimeout(getMonthlySummary(userId!, currentMonth), queryTimeoutMs, 'Monthly summary'),
         enabled: !!userId && !demoMode,
     });
 
     const budgetQuery = useQuery({
         queryKey: ['budgets', userId, currentMonth],
-        queryFn: () => getBudget(userId!, currentMonth),
+        queryFn: () => withTimeout(getBudget(userId!, currentMonth), queryTimeoutMs, 'Budget'),
         enabled: !!userId && !demoMode,
     });
 
     const goalsQuery = useQuery({
         queryKey: ['goals', userId],
-        queryFn: () => getGoals(userId!),
+        queryFn: () => withTimeout(getGoals(userId!), queryTimeoutMs, 'Goals'),
         enabled: !!userId && !demoMode,
     });
 
     const recurringQuery = useQuery({
         queryKey: ['recurring', userId],
-        queryFn: () => getRecurringExpenses(userId!),
+        queryFn: () => withTimeout(getRecurringExpenses(userId!), queryTimeoutMs, 'Recurring expenses'),
         enabled: !!userId && !demoMode,
     });
 
@@ -73,25 +84,28 @@ export function useDashboardData(userId: string | undefined, currentMonth: strin
     const trendMonths = Array.from({ length: 6 }, (_, i) => format(subMonths(new Date(), 5 - i), 'yyyy-MM'));
     const trendQuery = useQuery({
         queryKey: ['expenses', 'summaries', userId, trendMonths],
-        queryFn: () => getMultipleMonthSummaries(userId!, trendMonths),
+        queryFn: () => withTimeout(getMultipleMonthSummaries(userId!, trendMonths), queryTimeoutMs, 'Trend summaries'),
         enabled: !!userId && !demoMode,
     });
 
     // Weekly review queries
-    const weekEnd = new Date();
+    const weekEnd = endOfDay(new Date());
     const weekStart = startOfWeek(weekEnd, { weekStartsOn: 1 });
     const prevWeekEnd = subWeeks(weekEnd, 1);
     const prevWeekStart = startOfWeek(prevWeekEnd, { weekStartsOn: 1 });
+    const thisWeekKey = `${format(weekStart, 'yyyy-MM-dd')}..${format(weekEnd, 'yyyy-MM-dd')}`;
+    const prevWeekRangeEnd = endOfWeek(prevWeekStart, { weekStartsOn: 1 });
+    const prevWeekKey = `${format(prevWeekStart, 'yyyy-MM-dd')}..${format(prevWeekRangeEnd, 'yyyy-MM-dd')}`;
 
     const thisWeekQuery = useQuery({
-        queryKey: ['expenses', 'range', userId, weekStart.toISOString(), weekEnd.toISOString()],
-        queryFn: () => getExpensesInRange(userId!, weekStart, weekEnd),
+        queryKey: ['expenses', 'range', userId, thisWeekKey],
+        queryFn: () => withTimeout(getExpensesInRange(userId!, weekStart, weekEnd), queryTimeoutMs, 'This week expenses'),
         enabled: !!userId && !demoMode,
     });
 
     const prevWeekQuery = useQuery({
-        queryKey: ['expenses', 'range', userId, prevWeekStart.toISOString(), endOfWeek(prevWeekStart, { weekStartsOn: 1 }).toISOString()],
-        queryFn: () => getExpensesInRange(userId!, prevWeekStart, endOfWeek(prevWeekStart, { weekStartsOn: 1 })),
+        queryKey: ['expenses', 'range', userId, prevWeekKey],
+        queryFn: () => withTimeout(getExpensesInRange(userId!, prevWeekStart, prevWeekRangeEnd), queryTimeoutMs, 'Previous week expenses'),
         enabled: !!userId && !demoMode,
     });
 
@@ -119,6 +133,35 @@ export function useDashboardData(userId: string | undefined, currentMonth: strin
         thisWeekQuery.isLoading || prevWeekQuery.isLoading
     );
 
+    const hasError = !demoMode && (
+        recentQuery.isError || summaryQuery.isError || budgetQuery.isError ||
+        goalsQuery.isError || recurringQuery.isError || trendQuery.isError ||
+        thisWeekQuery.isError || prevWeekQuery.isError
+    );
+
+    const firstError = [
+        recentQuery.error,
+        summaryQuery.error,
+        budgetQuery.error,
+        goalsQuery.error,
+        recurringQuery.error,
+        trendQuery.error,
+        thisWeekQuery.error,
+        prevWeekQuery.error,
+    ].find(Boolean) as Error | undefined;
+
+    const errorMessage = firstError?.message || null;
+    const debugStatus = [
+        `recent:${recentQuery.status}/${recentQuery.fetchStatus}`,
+        `summary:${summaryQuery.status}/${summaryQuery.fetchStatus}`,
+        `budget:${budgetQuery.status}/${budgetQuery.fetchStatus}`,
+        `goals:${goalsQuery.status}/${goalsQuery.fetchStatus}`,
+        `recurring:${recurringQuery.status}/${recurringQuery.fetchStatus}`,
+        `trend:${trendQuery.status}/${trendQuery.fetchStatus}`,
+        `thisWeek:${thisWeekQuery.status}/${thisWeekQuery.fetchStatus}`,
+        `prevWeek:${prevWeekQuery.status}/${prevWeekQuery.fetchStatus}`,
+    ].join(' | ');
+
     return {
         recentExpenses: demoMode ? DEMO_EXPENSES.slice(0, 5) : (recentQuery.data || []),
         summary: demoMode ? DEMO_SUMMARY : (summaryQuery.data || null),
@@ -127,6 +170,9 @@ export function useDashboardData(userId: string | undefined, currentMonth: strin
         upcomingBills,
         weeklyReview,
         trendData,
-        isLoading
+        isLoading,
+        hasError,
+        errorMessage,
+        debugStatus
     };
 }

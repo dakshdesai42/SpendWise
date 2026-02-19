@@ -2,33 +2,41 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { CATEGORIES } from '../utils/constants';
 import { ParsedTransaction } from '../types/models';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Configure pdf.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Use a bundled worker URL so PDF parsing works without CDN/network dependency.
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 export async function extractTextFromPDF(file: File): Promise<string> {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  let fullText = '';
+  return Promise.race([
+    (async () => {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
 
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    // Preserve line breaks by grouping items by vertical position
-    const itemsByY: { [key: number]: string[] } = {};
-    for (const itemAny of content.items) {
-      const item = itemAny as { transform: number[]; str: string };
-      const y = Math.round(item.transform[5]);
-      if (!itemsByY[y]) itemsByY[y] = [];
-      itemsByY[y].push(item.str);
-    }
-    const sortedYs = Object.keys(itemsByY).map(Number).sort((a, b) => b - a);
-    for (const y of sortedYs) {
-      fullText += itemsByY[y].join(' ') + '\n';
-    }
-  }
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        // Preserve line breaks by grouping items by vertical position
+        const itemsByY: { [key: number]: string[] } = {};
+        for (const itemAny of content.items) {
+          const item = itemAny as { transform: number[]; str: string };
+          const y = Math.round(item.transform[5]);
+          if (!itemsByY[y]) itemsByY[y] = [];
+          itemsByY[y].push(item.str);
+        }
+        const sortedYs = Object.keys(itemsByY).map(Number).sort((a, b) => b - a);
+        for (const y of sortedYs) {
+          fullText += itemsByY[y].join(' ') + '\n';
+        }
+      }
 
-  return fullText;
+      return fullText;
+    })(),
+    new Promise<string>((_, reject) => {
+      setTimeout(() => reject(new Error('PDF text extraction timed out after 25s')), 25000);
+    }),
+  ]);
 }
 
 export function parseCSV(text: string): ParsedTransaction[] {
@@ -216,7 +224,69 @@ export function inferCategory(note: string): string {
   return 'other';
 }
 
-export async function parseWithAI(text: string, hostCurrency: string): Promise<ParsedTransaction[]> {
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function extractJsonArrayOrObject(raw: string): any {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+    return JSON.parse(trimmed);
+  }
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) {
+    const body = fenced[1].trim();
+    if (body.startsWith('[') || body.startsWith('{')) return JSON.parse(body);
+  }
+
+  const arrayMatch = trimmed.match(/\[[\s\S]*\]/);
+  if (arrayMatch) return JSON.parse(arrayMatch[0]);
+
+  const objMatch = trimmed.match(/\{[\s\S]*\}/);
+  if (objMatch) return JSON.parse(objMatch[0]);
+
+  throw new Error('No valid JSON found in AI response');
+}
+
+function normalizeAITransactions(payload: any): ParsedTransaction[] {
+  const maybeList = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.transactions)
+      ? payload.transactions
+      : [];
+
+  return maybeList
+    .map((t: any) => {
+      const dateValue = normalizeDate(String(t?.date ?? '').trim());
+      const amountValue = typeof t?.amount === 'number'
+        ? Math.abs(t.amount)
+        : Math.abs(parseAmount(String(t?.amount ?? '')));
+      const note = String(t?.note ?? t?.description ?? t?.merchant ?? 'Transaction').trim().slice(0, 120);
+      let category = String(t?.category ?? '').toLowerCase().trim();
+      if (!CATEGORIES.some((c) => c.id === category)) {
+        category = inferCategory(note);
+      }
+      if (!dateValue || !amountValue || amountValue <= 0) return null;
+      return {
+        date: dateValue,
+        amount: amountValue,
+        note,
+        category,
+        fingerprint: buildFingerprint(dateValue, amountValue, note),
+      } as ParsedTransaction;
+    })
+    .filter(Boolean) as ParsedTransaction[];
+}
+
+export async function parseWithAI(text: string, hostCurrency: string, sourceFile?: File): Promise<ParsedTransaction[]> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     return parseWithKeywords(text, hostCurrency);
@@ -228,7 +298,7 @@ export async function parseWithAI(text: string, hostCurrency: string): Promise<P
 
     const categoryList = CATEGORIES.map((c) => c.id).join(', ');
 
-    const prompt = `You are a bank statement parser. Extract all spending/debit transactions from the following bank statement text and return them as a JSON array.
+    const prompt = `You are a bank statement parser. Extract all spending/debit transactions and return them as a JSON array.
 
 Each transaction must have:
 - "date": string in YYYY-MM-DD format
@@ -242,25 +312,37 @@ Rules:
 - If amounts have commas as thousands separator, remove them
 - Currency is ${hostCurrency}
 
-Return ONLY a valid JSON array with no markdown, no explanation, no code fences.
+Return JSON only. Preferred shape is an array. If needed, return {"transactions":[...]}.
+`;
 
-Bank statement text:
-${text.slice(0, 18000)}`;
-
-    const result = await model.generateContent(prompt);
+    let result;
+    if (sourceFile && sourceFile.name.toLowerCase().endsWith('.pdf')) {
+      const fileData = await sourceFile.arrayBuffer();
+      const inlineData = {
+        inlineData: {
+          data: arrayBufferToBase64(fileData),
+          mimeType: 'application/pdf',
+        },
+      };
+      result = await Promise.race([
+        model.generateContent([prompt, inlineData]),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('AI parsing timed out after 25s')), 25000);
+        }),
+      ]);
+    } else {
+      result = await Promise.race([
+        model.generateContent(`${prompt}\n\nBank statement text:\n${text.slice(0, 18000)}`),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('AI parsing timed out after 25s')), 25000);
+        }),
+      ]);
+    }
     const response = result.response.text();
-
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) throw new Error('No valid JSON found in AI response');
-
-    const transactions = JSON.parse(jsonMatch[0]);
-    return transactions
-      .filter((t: any) => t.date && t.amount && t.amount > 0)
-      .map((t: any) => ({
-        ...t,
-        date: normalizeDate(t.date) || t.date,
-        fingerprint: buildFingerprint(t.date, t.amount, t.note || ''),
-      }));
+    const parsedPayload = extractJsonArrayOrObject(response);
+    const normalized = normalizeAITransactions(parsedPayload);
+    if (normalized.length > 0) return normalized;
+    throw new Error('AI returned no usable transactions');
   } catch (err) {
     console.error('AI parsing failed, falling back to keyword matching:', err);
     return parseWithKeywords(text, hostCurrency);

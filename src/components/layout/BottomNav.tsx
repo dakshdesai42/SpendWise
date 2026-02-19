@@ -36,7 +36,7 @@ export default function BottomNav({ onAddExpense }: { onAddExpense?: () => void 
             whileTap={{ scale: 0.9 }}
             className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg shadow-accent-primary/30 -mt-6"
             style={{
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
+              background: 'linear-gradient(135deg, var(--color-accent-primary) 0%, #0066d6 100%)',
             }}
           >
             <HiPlus className="w-7 h-7 text-white" strokeWidth={2.5} />
