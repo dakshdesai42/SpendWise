@@ -54,6 +54,13 @@ export const CURRENCY_MAP = Object.fromEntries(
   POPULAR_CURRENCIES.map((c) => [c.code, c])
 );
 
+export const FREQUENCIES = [
+  { id: 'daily', label: 'Daily' },
+  { id: 'weekly', label: 'Weekly' },
+  { id: 'monthly', label: 'Monthly' },
+  { id: 'yearly', label: 'Yearly' },
+];
+
 export const ACHIEVEMENTS = [
   { id: 'streak_3', label: '3-Day Streak', icon: '🔥', description: 'Log expenses 3 days in a row' },
   { id: 'streak_7', label: 'Week Warrior', icon: '⚡', description: 'Log expenses 7 days in a row' },

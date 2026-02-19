@@ -109,7 +109,7 @@ export default function BudgetsPage() {
         >
           {/* Overall Budget */}
           <motion.div variants={itemVariants}>
-            <GlassCard>
+            <GlassCard className="p-6 md:p-7">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-text-secondary">Overall Monthly Budget</h3>
                 <span className="text-sm text-text-tertiary">
@@ -144,7 +144,7 @@ export default function BudgetsPage() {
           {/* Unbudgeted categories with spending */}
           {Object.keys(categoryTotals).some((k) => !budget.categories?.[k] && categoryTotals[k] > 0) && (
             <motion.div variants={itemVariants}>
-              <GlassCard>
+              <GlassCard className="p-6 md:p-7">
                 <h3 className="text-sm font-medium text-text-secondary mb-3">Unbudgeted Spending</h3>
                 <div className="space-y-2">
                   {CATEGORIES.filter((cat) => !budget.categories?.[cat.id] && categoryTotals[cat.id] > 0).map((cat) => (

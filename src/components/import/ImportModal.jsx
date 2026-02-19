@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -7,23 +7,127 @@ import { CATEGORY_MAP, CATEGORIES } from '../../utils/constants';
 import { formatCurrency } from '../../utils/formatters';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
-import { extractTextFromPDF, parseWithAI } from '../../services/statementParser';
-import { bulkAddExpenses } from '../../services/expenses';
+import {
+  extractTextFromPDF,
+  parseWithAI,
+  parseCSV,
+  buildFingerprint,
+} from '../../services/statementParser';
+import { bulkAddExpenses, getExpensesInRange } from '../../services/expenses';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 
+// ─── Inline-editable cell ────────────────────────────────────────────────────
+function EditableCell({ value, onChange, type = 'text', className = '' }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef(null);
+
+  function startEdit() {
+    setDraft(value);
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function commit() {
+    setEditing(false);
+    if (draft !== value) onChange(draft);
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type={type}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit();
+          if (e.key === 'Escape') setEditing(false);
+        }}
+        className={clsx(
+          'bg-white/[0.08] border border-accent-primary/40 rounded px-1.5 py-0.5 text-text-primary outline-none w-full',
+          className
+        )}
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={startEdit}
+      title="Click to edit"
+      className={clsx(
+        'text-left hover:text-accent-primary transition-colors cursor-text underline decoration-dotted underline-offset-2 decoration-white/20',
+        className
+      )}
+    >
+      {value}
+    </button>
+  );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function formatDateRange(transactions) {
+  if (!transactions.length) return null;
+  const dates = transactions.map((t) => t.date).sort();
+  const first = dates[0];
+  const last = dates[dates.length - 1];
+  if (first === last) return first;
+  return `${first} → ${last}`;
+}
+
+async function processFile(file, hostCurrency) {
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.pdf')) {
+    const text = await extractTextFromPDF(file);
+    if (!text.trim()) throw new Error('Could not extract text from PDF');
+    return parseWithAI(text, hostCurrency);
+  }
+  if (name.endsWith('.csv') || name.endsWith('.txt')) {
+    const text = await file.text();
+    return parseCSV(text);
+  }
+  throw new Error(`Unsupported file type: ${file.name}`);
+}
+
+function mergeAndDeduplicate(allTransactions) {
+  const seen = new Set();
+  const merged = [];
+  for (const t of allTransactions) {
+    const fp = t.fingerprint || buildFingerprint(t.date, t.amount, t.note || '');
+    if (!seen.has(fp)) {
+      seen.add(fp);
+      merged.push({ ...t, fingerprint: fp });
+    }
+  }
+  return merged;
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function ImportModal({ isOpen, onClose, onImported }) {
   const { user } = useAuth();
   const { hostCurrency, homeCurrency, convertToHome, getRate } = useCurrency();
+
   const [step, setStep] = useState('upload'); // upload | processing | review
   const [transactions, setTransactions] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [importing, setImporting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [processingFiles, setProcessingFiles] = useState([]);
+  // {name, status: 'pending'|'done'|'error', count}
+  const [duplicateCount, setDuplicateCount] = useState(0);
+  const fileInputRef = useRef(null);
 
+  // ── Reset ────────────────────────────────────────────────────────────────
   function reset() {
     setStep('upload');
     setTransactions([]);
     setSelected(new Set());
+    setProcessingFiles([]);
+    setDuplicateCount(0);
+    setDragOver(false);
   }
 
   function handleClose() {
@@ -31,68 +135,151 @@ export default function ImportModal({ isOpen, onClose, onImported }) {
     onClose();
   }
 
-  async function handleFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      toast.error('Please upload a PDF file');
+  // ── File processing ───────────────────────────────────────────────────────
+  async function processFiles(files) {
+    const validFiles = Array.from(files).filter((f) => {
+      const n = f.name.toLowerCase();
+      return n.endsWith('.pdf') || n.endsWith('.csv') || n.endsWith('.txt');
+    });
+
+    if (validFiles.length === 0) {
+      toast.error('Please upload PDF or CSV files');
       return;
     }
 
     setStep('processing');
-    try {
-      const text = await extractTextFromPDF(file);
-      if (!text.trim()) {
-        toast.error('Could not extract text from PDF');
-        setStep('upload');
-        return;
+    setProcessingFiles(validFiles.map((f) => ({ name: f.name, status: 'pending', count: 0 })));
+
+    const allParsed = [];
+
+    for (let i = 0; i < validFiles.length; i++) {
+      const file = validFiles[i];
+      try {
+        const parsed = await processFile(file, hostCurrency);
+        allParsed.push(...parsed);
+        setProcessingFiles((prev) =>
+          prev.map((p, idx) =>
+            idx === i ? { ...p, status: 'done', count: parsed.length } : p
+          )
+        );
+      } catch (err) {
+        console.error(`Error processing ${file.name}:`, err);
+        setProcessingFiles((prev) =>
+          prev.map((p, idx) =>
+            idx === i ? { ...p, status: 'error' } : p
+          )
+        );
       }
-      const parsed = await parseWithAI(text, hostCurrency);
-      if (parsed.length === 0) {
-        toast.error('No transactions found in this statement');
-        setStep('upload');
-        return;
-      }
-      setTransactions(parsed);
-      setSelected(new Set(parsed.map((_, i) => i)));
-      setStep('review');
-    } catch (err) {
-      console.error('Import error:', err);
-      toast.error('Failed to parse statement');
-      setStep('upload');
     }
+
+    const merged = mergeAndDeduplicate(allParsed);
+
+    if (merged.length === 0) {
+      toast.error('No transactions found in the uploaded files');
+      setStep('upload');
+      return;
+    }
+
+    // ── Cross-check against existing Firestore expenses ────────────────────
+    let existingFingerprints = new Set();
+    try {
+      const dates = merged.map((t) => t.date).sort();
+      const existing = await getExpensesInRange(user.uid, dates[0], dates[dates.length - 1]);
+      existingFingerprints = new Set(
+        existing
+          .filter((e) => e.fingerprint)
+          .map((e) => e.fingerprint)
+      );
+    } catch (_) {
+      // non-fatal — dedup against Firestore is best-effort
+    }
+
+    const dupes = merged.filter((t) => existingFingerprints.has(t.fingerprint)).length;
+    setDuplicateCount(dupes);
+
+    // Pre-deselect known duplicates
+    const finalTransactions = merged.map((t) => ({
+      ...t,
+      isDuplicate: existingFingerprints.has(t.fingerprint),
+    }));
+
+    setTransactions(finalTransactions);
+    setSelected(
+      new Set(
+        finalTransactions
+          .map((_, i) => i)
+          .filter((i) => !finalTransactions[i].isDuplicate)
+      )
+    );
+    setStep('review');
   }
 
+  // ── Input / Drag handlers ─────────────────────────────────────────────────
+  function handleFileInput(e) {
+    if (e.target.files?.length) processFiles(e.target.files);
+    e.target.value = ''; // allow re-selecting same file
+  }
+
+  const handleDrop = useCallback(
+    (e) => {
+      e.preventDefault();
+      setDragOver(false);
+      processFiles(e.dataTransfer.files);
+    },
+    [hostCurrency]
+  );
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    setDragOver(true);
+  }
+
+  function handleDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false);
+  }
+
+  // ── Review interactions ───────────────────────────────────────────────────
   function toggleTransaction(index) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
+      next.has(index) ? next.delete(index) : next.add(index);
       return next;
     });
   }
 
-  function updateCategory(index, category) {
+  function updateField(index, field, value) {
     setTransactions((prev) =>
-      prev.map((t, i) => (i === index ? { ...t, category } : t))
+      prev.map((t, i) => {
+        if (i !== index) return t;
+        const updated = { ...t, [field]: value };
+        // Rebuild fingerprint if key fields changed
+        if (['date', 'amount', 'note'].includes(field)) {
+          updated.fingerprint = buildFingerprint(
+            updated.date,
+            Number(updated.amount) || 0,
+            updated.note || ''
+          );
+        }
+        return updated;
+      })
     );
   }
 
+  // ── Import ────────────────────────────────────────────────────────────────
   async function handleImport() {
     const toImport = transactions
       .filter((_, i) => selected.has(i))
       .map((t) => {
         const rate = getRate(hostCurrency, homeCurrency);
+        const amt = Number(t.amount) || 0;
         return {
-          amount: t.amount,
-          amountHome: convertToHome(t.amount),
+          amount: amt,
+          amountHome: convertToHome(amt),
           exchangeRate: rate,
           category: t.category,
           note: t.note,
           date: t.date,
+          fingerprint: t.fingerprint,
         };
       });
 
@@ -104,119 +291,237 @@ export default function ImportModal({ isOpen, onClose, onImported }) {
     setImporting(true);
     try {
       await bulkAddExpenses(user.uid, toImport);
-      toast.success(`Imported ${toImport.length} expenses!`);
+      toast.success(`Imported ${toImport.length} expense${toImport.length !== 1 ? 's' : ''}!`);
       handleClose();
       onImported?.();
     } catch (err) {
+      console.error('Import error:', err);
       toast.error('Failed to import expenses');
     } finally {
       setImporting(false);
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Import Bank Statement" size="2xl">
       <AnimatePresence mode="wait">
+
+        {/* ── Upload step ─────────────────────────────────────────────────── */}
         {step === 'upload' && (
           <motion.div
             key="upload"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="py-8"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2 }}
+            className="py-6"
           >
-            <label className="flex flex-col items-center justify-center border-2 border-dashed border-white/[0.1] rounded-2xl p-12 cursor-pointer hover:border-accent-primary/30 hover:bg-accent-primary/5 transition-all group">
-              <span className="text-4xl mb-3">📄</span>
-              <p className="text-sm font-medium text-text-primary mb-1">
-                Upload your bank statement
+            {/* Drop zone */}
+            <div
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onClick={() => fileInputRef.current?.click()}
+              className={clsx(
+                'flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-12 cursor-pointer transition-all group select-none',
+                dragOver
+                  ? 'border-accent-primary/60 bg-accent-primary/10 scale-[1.01]'
+                  : 'border-white/[0.1] hover:border-accent-primary/30 hover:bg-accent-primary/5'
+              )}
+            >
+              <span className={clsx('text-5xl mb-4 transition-transform', dragOver && 'scale-110')}>
+                {dragOver ? '📂' : '📄'}
+              </span>
+              <p className="text-sm font-semibold text-text-primary mb-1">
+                {dragOver ? 'Drop files here' : 'Drag & drop your bank statements'}
               </p>
-              <p className="text-xs text-text-tertiary mb-4">
-                PDF format — we'll extract and categorize transactions automatically
+              <p className="text-xs text-text-tertiary mb-4 text-center">
+                PDF or CSV — we'll extract and categorize transactions automatically
               </p>
               <span className="text-xs font-medium text-accent-primary group-hover:underline">
-                Choose file
+                or click to browse files
               </span>
               <input
+                ref={fileInputRef}
                 type="file"
-                accept=".pdf"
-                onChange={handleFile}
+                accept=".pdf,.csv,.txt"
+                multiple
+                onChange={handleFileInput}
                 className="hidden"
               />
-            </label>
-            <p className="text-[10px] text-text-tertiary text-center mt-3">
-              Your file is processed locally in your browser. Nothing is uploaded to our servers.
+            </div>
+
+            {/* Format hints */}
+            <div className="flex gap-3 mt-4">
+              {[
+                { icon: '📑', label: 'PDF', hint: 'Bank-generated statements' },
+                { icon: '📊', label: 'CSV', hint: 'Excel / data exports' },
+                { icon: '📦', label: 'Multiple files', hint: 'Import several months at once' },
+              ].map(({ icon, label, hint }) => (
+                <div
+                  key={label}
+                  className="flex-1 flex flex-col items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3"
+                >
+                  <span className="text-lg">{icon}</span>
+                  <span className="text-[11px] font-medium text-text-primary">{label}</span>
+                  <span className="text-[10px] text-text-tertiary text-center">{hint}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[10px] text-text-tertiary text-center mt-4">
+              🔒 Files are processed entirely in your browser — nothing is uploaded to our servers.
             </p>
           </motion.div>
         )}
 
+        {/* ── Processing step ─────────────────────────────────────────────── */}
         {step === 'processing' && (
           <motion.div
             key="processing"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center py-16"
+            className="flex flex-col items-center justify-center py-12 gap-6"
           >
             <LoadingSpinner size="lg" />
-            <p className="text-sm text-text-secondary mt-4">Analyzing your statement...</p>
-            <p className="text-xs text-text-tertiary mt-1">This may take a few seconds</p>
+            <div className="w-full max-w-xs space-y-2">
+              {processingFiles.map((pf, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-base">
+                    {pf.status === 'done' ? '✅' : pf.status === 'error' ? '❌' : '⏳'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-text-primary truncate">{pf.name}</p>
+                    {pf.status === 'done' && (
+                      <p className="text-[10px] text-text-tertiary">{pf.count} transactions found</p>
+                    )}
+                    {pf.status === 'error' && (
+                      <p className="text-[10px] text-red-400">Could not parse this file</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-text-tertiary">
+              {processingFiles.some((f) => f.status === 'pending')
+                ? 'Analyzing with AI…'
+                : 'Checking for duplicates…'}
+            </p>
           </motion.div>
         )}
 
+        {/* ── Review step ─────────────────────────────────────────────────── */}
         {step === 'review' && (
           <motion.div
             key="review"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="space-y-4"
+            transition={{ duration: 0.2 }}
+            className="space-y-3"
           >
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-text-secondary">
-                Found <span className="text-text-primary font-medium">{transactions.length}</span> transactions
-                ({selected.size} selected)
+            {/* Summary bar */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <p className="text-sm text-text-secondary flex-1">
+                <span className="text-text-primary font-semibold">{transactions.length}</span> transactions found
+                {' · '}
+                <span className="text-accent-primary font-medium">{selected.size} selected</span>
               </p>
               <button
                 onClick={() =>
                   setSelected(
-                    selected.size === transactions.length
+                    selected.size === transactions.filter((t) => !t.isDuplicate).length
                       ? new Set()
-                      : new Set(transactions.map((_, i) => i))
+                      : new Set(
+                          transactions
+                            .map((_, i) => i)
+                            .filter((i) => !transactions[i].isDuplicate)
+                        )
                   )
                 }
-                className="text-xs text-accent-primary hover:underline"
+                className="text-xs text-accent-primary hover:underline shrink-0"
               >
-                {selected.size === transactions.length ? 'Deselect all' : 'Select all'}
+                {selected.size > 0 ? 'Deselect all' : 'Select all'}
               </button>
             </div>
 
-            <div className="max-h-80 overflow-y-auto space-y-1 pr-1">
+            {/* Date range + duplicate notice */}
+            <div className="flex flex-wrap gap-2">
+              {(() => {
+                const range = formatDateRange(transactions);
+                return range ? (
+                  <span className="text-[11px] bg-white/[0.04] border border-white/[0.08] rounded-full px-3 py-1 text-text-secondary">
+                    📅 {range}
+                  </span>
+                ) : null;
+              })()}
+              {duplicateCount > 0 && (
+                <span className="text-[11px] bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1 text-amber-400">
+                  ⚠️ {duplicateCount} likely duplicate{duplicateCount !== 1 ? 's' : ''} pre-deselected
+                </span>
+              )}
+            </div>
+
+            {/* Column headers */}
+            <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-3 items-center px-3 pb-1 border-b border-white/[0.05]">
+              <div />
+              <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide">Description</p>
+              <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide">Date</p>
+              <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide">Category</p>
+              <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-wide text-right">Amount</p>
+            </div>
+
+            {/* Transaction rows */}
+            <div className="max-h-72 overflow-y-auto space-y-0.5 pr-0.5 -mr-1">
               {transactions.map((t, i) => {
                 const cat = CATEGORY_MAP[t.category] || CATEGORY_MAP.other;
+                const isSelected = selected.has(i);
                 return (
                   <div
                     key={i}
                     className={clsx(
-                      'flex items-center gap-3 p-3 rounded-xl border transition-colors',
-                      selected.has(i)
-                        ? 'border-white/[0.08] bg-white/[0.03]'
-                        : 'border-transparent opacity-40'
+                      'grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-3 items-center px-3 py-2.5 rounded-xl border transition-all',
+                      isSelected
+                        ? 'border-white/[0.07] bg-white/[0.025]'
+                        : 'border-transparent opacity-40',
+                      t.isDuplicate && 'opacity-30'
                     )}
                   >
+                    {/* Checkbox */}
                     <input
                       type="checkbox"
-                      checked={selected.has(i)}
+                      checked={isSelected}
                       onChange={() => toggleTransaction(i)}
-                      className="shrink-0 w-4 h-4 rounded accent-accent-primary"
+                      className="shrink-0 w-3.5 h-3.5 rounded accent-accent-primary cursor-pointer"
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-text-primary truncate">{t.note}</p>
-                      <p className="text-xs text-text-tertiary">{t.date}</p>
+
+                    {/* Note — editable */}
+                    <div className="min-w-0">
+                      <EditableCell
+                        value={t.note}
+                        onChange={(v) => updateField(i, 'note', v)}
+                        className="text-sm text-text-primary truncate block max-w-full"
+                      />
+                      {t.isDuplicate && (
+                        <span className="text-[9px] text-amber-400/70">already imported</span>
+                      )}
                     </div>
+
+                    {/* Date — editable */}
+                    <EditableCell
+                      value={t.date}
+                      onChange={(v) => updateField(i, 'date', v)}
+                      type="date"
+                      className="text-xs text-text-tertiary shrink-0 w-[5.5rem]"
+                    />
+
+                    {/* Category */}
                     <select
                       value={t.category}
-                      onChange={(e) => updateCategory(i, e.target.value)}
-                      className="text-xs rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-1.5 text-text-primary shrink-0"
+                      onChange={(e) => updateField(i, 'category', e.target.value)}
+                      className="text-xs rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-1 text-text-primary shrink-0 max-w-[7.5rem]"
                     >
                       {CATEGORIES.map((c) => (
                         <option key={c.id} value={c.id} className="bg-bg-primary">
@@ -224,29 +529,64 @@ export default function ImportModal({ isOpen, onClose, onImported }) {
                         </option>
                       ))}
                     </select>
-                    <span className="text-sm font-medium text-text-primary shrink-0">
-                      {formatCurrency(t.amount, hostCurrency)}
-                    </span>
+
+                    {/* Amount — editable */}
+                    <div className="shrink-0 text-right">
+                      <EditableCell
+                        value={String(t.amount)}
+                        onChange={(v) => {
+                          const parsed = parseFloat(v.replace(/[^0-9.]/g, ''));
+                          if (!isNaN(parsed)) updateField(i, 'amount', parsed);
+                        }}
+                        type="number"
+                        className="text-sm font-medium text-text-primary w-20 text-right"
+                      />
+                      <span className="text-[9px] text-text-tertiary block">{hostCurrency}</span>
+                    </div>
                   </div>
                 );
               })}
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button variant="secondary" className="flex-1" onClick={() => setStep('upload')}>
-                Back
+            {/* Selected total */}
+            {selected.size > 0 && (() => {
+              const total = transactions
+                .filter((_, i) => selected.has(i))
+                .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+              return (
+                <div className="flex justify-end">
+                  <span className="text-xs text-text-tertiary">
+                    Total:{' '}
+                    <span className="text-text-primary font-semibold">
+                      {formatCurrency(total, hostCurrency)}
+                    </span>
+                  </span>
+                </div>
+              );
+            })()}
+
+            {/* Action buttons */}
+            <div className="flex gap-3 pt-1">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setStep('upload')}
+                disabled={importing}
+              >
+                ← Back
               </Button>
               <Button
                 className="flex-1"
                 onClick={handleImport}
                 loading={importing}
-                disabled={selected.size === 0}
+                disabled={selected.size === 0 || importing}
               >
-                Import {selected.size} Expenses
+                Import {selected.size} Expense{selected.size !== 1 ? 's' : ''}
               </Button>
             </div>
           </motion.div>
         )}
+
       </AnimatePresence>
     </Modal>
   );

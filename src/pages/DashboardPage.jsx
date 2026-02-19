@@ -1,14 +1,34 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { format, subMonths } from 'date-fns';
-import { HiArrowTrendingDown, HiArrowTrendingUp, HiBanknotes, HiHome as HiHomeIcon, HiFire } from 'react-icons/hi2';
+import { useFAB } from '../context/FABContext';
+import {
+  addDays,
+  differenceInCalendarDays,
+  endOfMonth,
+  endOfWeek,
+  format,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+  subWeeks,
+} from 'date-fns';
+import { HiArrowTrendingDown, HiArrowTrendingUp, HiBanknotes, HiHome as HiHomeIcon, HiFire, HiPlus, HiShare } from 'react-icons/hi2';
 import { useAuth } from '../context/AuthContext';
 import { useCurrency } from '../context/CurrencyContext';
-import { getRecentExpenses, getMonthlySummary, getMultipleMonthSummaries, addExpense } from '../services/expenses';
+import {
+  getRecentExpenses,
+  getMonthlySummary,
+  getMultipleMonthSummaries,
+  addExpense,
+  getExpensesInRange,
+} from '../services/expenses';
 import { getBudget } from '../services/budgets';
 import { getCurrentMonth, formatCurrency } from '../utils/formatters';
 import { containerVariants, itemVariants } from '../utils/animations';
-import { DEMO_EXPENSES, DEMO_SUMMARY, DEMO_BUDGET, DEMO_TREND } from '../utils/demoData';
+import { DEMO_EXPENSES, DEMO_SUMMARY, DEMO_BUDGET, DEMO_TREND, DEMO_RECURRING, DEMO_GOALS } from '../utils/demoData';
+import { autoPostRecurringForMonth, getRecurringExpenses, getUpcomingRecurringBills } from '../services/recurring';
+import { addGoal, applyUnderspendToGoals, getGoals } from '../services/goals';
+import { CATEGORY_MAP } from '../utils/constants';
 import Header from '../components/layout/Header';
 import GlassCard from '../components/ui/GlassCard';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -17,18 +37,38 @@ import ExpenseList from '../components/expense/ExpenseList';
 import SpendingDonut from '../components/charts/SpendingDonut';
 import MonthlyTrend from '../components/charts/MonthlyTrend';
 import BudgetOverview from '../components/budget/BudgetOverview';
+import Modal from '../components/ui/Modal';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
   const { user, profile, demoMode } = useAuth();
   const { hostCurrency, homeCurrency } = useCurrency();
+  const { setFABAction } = useFAB();
   const [loading, setLoading] = useState(true);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [recentExpenses, setRecentExpenses] = useState([]);
   const [summary, setSummary] = useState(null);
   const [budget, setBudget] = useState(null);
+  const [recurring, setRecurring] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [upcomingBills, setUpcomingBills] = useState([]);
+  const [weeklyReview, setWeeklyReview] = useState(null);
   const [trendData, setTrendData] = useState([]);
+  const [activeInsight, setActiveInsight] = useState('trend');
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [goalTitle, setGoalTitle] = useState('');
+  const [goalAmount, setGoalAmount] = useState('');
+  const [goalDate, setGoalDate] = useState('');
+  const [savingGoal, setSavingGoal] = useState(false);
   const currentMonth = getCurrentMonth();
+
+  // Register this page's add-expense action with the global FAB
+  useEffect(() => {
+    setFABAction(() => setShowExpenseForm(true));
+    return () => setFABAction(null);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -44,6 +84,10 @@ export default function DashboardPage() {
     setSummary(DEMO_SUMMARY);
     setBudget(DEMO_BUDGET);
     setTrendData(DEMO_TREND);
+    setRecurring(DEMO_RECURRING);
+    setGoals(DEMO_GOALS);
+    setUpcomingBills(getUpcomingRecurringBills(DEMO_RECURRING, new Date(), 30));
+    setWeeklyReview(buildWeeklyReviewFromExpenses(DEMO_EXPENSES));
     setLoading(false);
   }
 
@@ -56,9 +100,20 @@ export default function DashboardPage() {
         getBudget(user.uid, currentMonth),
       ]);
 
-      setRecentExpenses(recent);
-      setSummary(monthSummary);
+      await autoPostRecurringForMonth(user.uid, currentMonth);
+      const [reloadedRecent, reloadedSummary, recurringData, goalsData] = await Promise.all([
+        getRecentExpenses(user.uid, 5),
+        getMonthlySummary(user.uid, currentMonth),
+        getRecurringExpenses(user.uid),
+        getGoals(user.uid),
+      ]);
+
+      setRecentExpenses(reloadedRecent.length ? reloadedRecent : recent);
+      setSummary(reloadedSummary || monthSummary);
       setBudget(monthBudget);
+      setRecurring(recurringData);
+      setGoals(goalsData);
+      setUpcomingBills(getUpcomingRecurringBills(recurringData, new Date(), 30));
 
       const months = [];
       for (let i = 5; i >= 0; i--) {
@@ -70,11 +125,43 @@ export default function DashboardPage() {
         total: summaries[m]?.totalSpent || 0,
       }));
       setTrendData(trend);
+
+      const weekEnd = new Date();
+      const weekStart = startOfWeek(weekEnd, { weekStartsOn: 1 });
+      const prevWeekEnd = subWeeks(weekEnd, 1);
+      const prevWeekStart = startOfWeek(prevWeekEnd, { weekStartsOn: 1 });
+      const [thisWeek, prevWeek] = await Promise.all([
+        getExpensesInRange(user.uid, weekStart, weekEnd),
+        getExpensesInRange(user.uid, prevWeekStart, endOfWeek(prevWeekStart, { weekStartsOn: 1 })),
+      ]);
+      setWeeklyReview(buildWeeklyReviewFromExpenses(thisWeek, prevWeek));
     } catch (err) {
       console.error('Failed to load dashboard:', err);
     } finally {
       setLoading(false);
     }
+  }
+
+  function buildWeeklyReviewFromExpenses(thisWeekExpenses = [], prevWeekExpenses = []) {
+    const total = thisWeekExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const prevTotal = prevWeekExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const change = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : 0;
+    const topCategoryId = Object.entries(
+      thisWeekExpenses.reduce((acc, e) => {
+        acc[e.category] = (acc[e.category] || 0) + e.amount;
+        return acc;
+      }, {})
+    ).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const topCategory = CATEGORY_MAP[topCategoryId] || CATEGORY_MAP.other;
+    const biggest = [...thisWeekExpenses].sort((a, b) => (b.amount || 0) - (a.amount || 0))[0];
+    return {
+      total,
+      count: thisWeekExpenses.length,
+      change,
+      topCategory,
+      biggest,
+      action: change > 10 ? 'Spending pace is high this week. Consider a low-spend weekend.' : 'Your spend pace is stable. Keep your current routine.',
+    };
   }
 
   async function handleAddExpense(data) {
@@ -91,16 +178,158 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleCreateGoal(e) {
+    e.preventDefault();
+    if (!goalTitle.trim() || !goalAmount || parseFloat(goalAmount) <= 0) return;
+
+    if (demoMode) {
+      setGoals((prev) => [
+        {
+          id: `demo-goal-${Date.now()}`,
+          title: goalTitle.trim(),
+          targetAmount: parseFloat(goalAmount),
+          currentSaved: 0,
+          targetDate: goalDate || null,
+          isActive: true,
+        },
+        ...prev,
+      ]);
+      toast.success('Goal created! (Demo mode)');
+      setGoalTitle('');
+      setGoalAmount('');
+      setGoalDate('');
+      setShowGoalModal(false);
+      return;
+    }
+
+    setSavingGoal(true);
+    try {
+      await addGoal(user.uid, {
+        title: goalTitle.trim(),
+        targetAmount: parseFloat(goalAmount),
+        targetDate: goalDate || null,
+      });
+      toast.success('Goal created');
+      setGoalTitle('');
+      setGoalAmount('');
+      setGoalDate('');
+      setShowGoalModal(false);
+      const goalsData = await getGoals(user.uid);
+      setGoals(goalsData);
+    } catch (err) {
+      toast.error('Failed to create goal');
+    } finally {
+      setSavingGoal(false);
+    }
+  }
+
+  async function handleApplyUnderspend() {
+    const available = Math.max(budgetRemaining || 0, 0);
+    if (available <= 0) {
+      toast.error('No underspend available to allocate');
+      return;
+    }
+
+    if (demoMode) {
+      const active = goals.filter((g) => g.isActive !== false && (g.currentSaved || 0) < (g.targetAmount || 0));
+      if (active.length === 0) {
+        toast.error('No active goals to fund');
+        return;
+      }
+      const share = available / active.length;
+      setGoals((prev) =>
+        prev.map((g) => {
+          if (!active.find((a) => a.id === g.id)) return g;
+          const remaining = Math.max((g.targetAmount || 0) - (g.currentSaved || 0), 0);
+          return { ...g, currentSaved: (g.currentSaved || 0) + Math.min(share, remaining) };
+        })
+      );
+      toast.success('Applied this month underspend to goals (Demo mode)');
+      return;
+    }
+
+    try {
+      const res = await applyUnderspendToGoals(user.uid, available);
+      if (!res.updated) {
+        toast.error('No active goals to fund');
+        return;
+      }
+      toast.success('Applied underspend to your active goals');
+      const goalsData = await getGoals(user.uid);
+      setGoals(goalsData);
+    } catch (err) {
+      toast.error('Failed to apply underspend');
+    }
+  }
+
+  async function handleShareMonthlySummary() {
+    const topCategoryEntry = Object.entries(summary?.categoryTotals || {}).sort((a, b) => b[1] - a[1])[0];
+    const topCategory = CATEGORY_MAP[topCategoryEntry?.[0] || 'other'];
+    const report = `SpendWise Monthly Summary (${currentMonth})
+Spent: ${formatCurrency(totalSpent, hostCurrency)}
+Transactions: ${summary?.transactionCount || 0}
+Top category: ${topCategory.label} (${formatCurrency(topCategoryEntry?.[1] || 0, hostCurrency)})
+Budget: ${budget ? `${Math.round(budgetPercent)}% used of ${formatCurrency(budget.overall, hostCurrency)}` : 'No budget set'}
+Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b) => sum + b.amount, 0), hostCurrency)}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'SpendWise Monthly Summary', text: report });
+      } else {
+        await navigator.clipboard.writeText(report);
+        toast.success('Monthly summary copied to clipboard');
+      }
+    } catch {
+      toast('Share canceled');
+    }
+  }
+
+  function handleDownloadMonthlySummary() {
+    const topCategoryEntry = Object.entries(summary?.categoryTotals || {}).sort((a, b) => b[1] - a[1])[0];
+    const topCategory = CATEGORY_MAP[topCategoryEntry?.[0] || 'other'];
+    const content = `SpendWise Monthly Summary (${currentMonth})
+
+- Total spent: ${formatCurrency(totalSpent, hostCurrency)}
+- Transactions: ${summary?.transactionCount || 0}
+- Top category: ${topCategory.label} (${formatCurrency(topCategoryEntry?.[1] || 0, hostCurrency)})
+- Budget status: ${budget ? `${Math.round(budgetPercent)}% used` : 'No budget set'}
+- Upcoming recurring (30 days): ${formatCurrency(upcomingBills.reduce((sum, b) => sum + b.amount, 0), hostCurrency)}
+`;
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `spendwise-summary-${currentMonth}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const totalSpent = summary?.totalSpent || 0;
   const totalSpentHome = summary?.totalSpentHome || 0;
   const budgetRemaining = budget ? budget.overall - totalSpent : null;
   const budgetPercent = budget ? (totalSpent / budget.overall) * 100 : 0;
   const streak = profile?.currentStreak || 0;
+  const monthStart = startOfMonth(new Date());
+  const monthEnd = endOfMonth(new Date());
+  const elapsedDays = Math.max(differenceInCalendarDays(new Date(), monthStart) + 1, 1);
+  const totalDays = differenceInCalendarDays(monthEnd, monthStart) + 1;
+  const elapsedPct = (elapsedDays / totalDays) * 100;
+  const paceDiff = budget ? budgetPercent - elapsedPct : 0;
+  const burnRateLevel = paceDiff > 12 ? 'high' : paceDiff > 4 ? 'medium' : 'normal';
+  const upcoming7 = upcomingBills.filter((b) => b.dueDate <= addDays(new Date(), 7));
+  const upcoming30Total = upcomingBills.reduce((sum, bill) => sum + bill.amount, 0);
+  const topCategoryEntry = Object.entries(summary?.categoryTotals || {}).sort((a, b) => b[1] - a[1])[0];
+  const topCategory = CATEGORY_MAP[topCategoryEntry?.[0] || 'other'];
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const loggedToday = recentExpenses.some(
     (e) => format(new Date(e.date), 'yyyy-MM-dd') === todayStr
   );
+  const insightTabs = [
+    { id: 'trend', label: 'Trend' },
+    { id: 'category', label: 'Category' },
+    { id: 'budget', label: 'Budget' },
+  ];
 
   if (loading) {
     return (
@@ -111,147 +340,287 @@ export default function DashboardPage() {
   }
 
   return (
-    <div>
+    <div className="pt-1 md:pt-2">
       <Header onAddExpense={() => setShowExpenseForm(true)} />
-
-      {demoMode && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl bg-accent-secondary/10 border border-accent-secondary/20 p-3 mb-4 text-center"
-        >
-          <p className="text-xs text-accent-secondary font-medium">
-            Demo Mode — Add Firebase credentials to .env to connect your real data
-          </p>
-        </motion.div>
-      )}
 
       <motion.div
         variants={containerVariants}
         initial="initial"
         animate="animate"
-        className="space-y-6"
+        className="space-y-12 md:space-y-14 mt-4 md:mt-5"
       >
-        {/* Streak */}
-        {streak > 0 && (
-          <motion.div variants={itemVariants} className="flex items-center gap-2 px-1">
-            <HiFire className="w-5 h-5 text-orange-400" />
-            <span className="text-sm font-medium text-orange-400">{streak} day streak!</span>
-          </motion.div>
-        )}
-
-        {!loggedToday && !demoMode && recentExpenses.length > 0 && (
-          <motion.div
-            variants={itemVariants}
-            className="rounded-xl bg-accent-primary/10 border border-accent-primary/20 p-4 flex items-center justify-between"
-          >
-            <div>
-              <p className="text-sm font-medium text-text-primary">Haven't logged anything today</p>
-              <p className="text-xs text-text-tertiary mt-0.5">Did you spend $0 or just forget?</p>
-            </div>
-            <button
-              onClick={() => setShowExpenseForm(true)}
-              className="text-xs font-medium text-accent-primary hover:underline shrink-0"
-            >
-              Quick add
-            </button>
+        {(demoMode || streak > 0 || (!loggedToday && !demoMode && recentExpenses.length > 0)) && (
+          <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-2.5">
+            {demoMode && (
+              <span className="text-xs px-2.5 py-1 rounded-full border border-accent-secondary/25 bg-accent-secondary/10 text-accent-secondary">
+                Demo mode enabled
+              </span>
+            )}
+            {streak > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-orange-400/25 bg-orange-400/10 text-orange-300">
+                <HiFire className="w-3.5 h-3.5" />
+                {streak} day streak
+              </span>
+            )}
+            {!loggedToday && !demoMode && recentExpenses.length > 0 && (
+              <button
+                onClick={() => setShowExpenseForm(true)}
+                className="text-xs px-2.5 py-1 rounded-full border border-accent-primary/25 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/15 transition-colors"
+              >
+                Nothing logged today. Add expense
+              </button>
+            )}
           </motion.div>
         )}
 
         {/* Stat Cards */}
-        <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <GlassCard className="p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2.5 rounded-xl bg-accent-primary/15">
-                <HiBanknotes className="w-5 h-5 text-accent-primary" />
+        <motion.div variants={itemVariants} className="space-y-4">
+          {/* Hero spend card — the one number that matters most */}
+          <GlassCard className="p-7 md:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm text-text-secondary mb-2">Spent This Month</p>
+                <p className="text-4xl md:text-5xl font-bold tracking-tight text-text-primary leading-none">
+                  {formatCurrency(totalSpent, hostCurrency)}
+                </p>
+                <p className="text-sm text-text-tertiary mt-2.5">
+                  ≈ {formatCurrency(totalSpentHome, homeCurrency)} &middot; {summary?.transactionCount || 0} transactions
+                </p>
               </div>
-              <span className="text-sm text-text-secondary">Spent This Month</span>
-            </div>
-            <p className="text-2xl font-bold text-text-primary">
-              {formatCurrency(totalSpent, hostCurrency)}
-            </p>
-            <p className="text-sm text-text-tertiary mt-1">
-              ~{formatCurrency(totalSpentHome, homeCurrency)}
-            </p>
-          </GlassCard>
 
-          <GlassCard className="p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2.5 rounded-xl bg-accent-secondary/15">
-                <HiHomeIcon className="w-5 h-5 text-accent-secondary" />
-              </div>
-              <span className="text-sm text-text-secondary">In Home Currency</span>
+              {/* Budget status pill — the key answer */}
+              {budget ? (
+                <div className={`shrink-0 flex flex-col items-end gap-1.5`}>
+                  <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
+                    budgetPercent > 100
+                      ? 'bg-danger/15 text-danger'
+                      : budgetPercent > 85
+                      ? 'bg-warning/15 text-warning'
+                      : 'bg-success/15 text-success'
+                  }`}>
+                    {budgetPercent > 100 ? '🔴 Over budget' : budgetPercent > 85 ? '⚠️ Watch it' : '✅ On track'}
+                  </span>
+                  <p className="text-xs text-text-tertiary text-right">
+                    {Math.round(budgetPercent)}% of {formatCurrency(budget.overall, hostCurrency)}
+                  </p>
+                </div>
+              ) : (
+                <span className="text-xs text-text-tertiary shrink-0 px-3 py-1.5 rounded-full border border-white/[0.08]">
+                  No budget set
+                </span>
+              )}
             </div>
-            <p className="text-2xl font-bold text-text-primary">
-              {formatCurrency(totalSpentHome, homeCurrency)}
-            </p>
-            <p className="text-sm text-text-tertiary mt-1">
-              {summary?.transactionCount || 0} transactions
-            </p>
-          </GlassCard>
 
-          <GlassCard className="p-6">
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`p-2.5 rounded-xl ${budgetPercent > 90 ? 'bg-danger/15' : budgetPercent > 75 ? 'bg-warning/15' : 'bg-success/15'}`}>
-                {budgetPercent > 90 ? (
-                  <HiArrowTrendingUp className="w-5 h-5 text-danger" />
-                ) : (
-                  <HiArrowTrendingDown className="w-5 h-5 text-success" />
-                )}
-              </div>
-              <span className="text-sm text-text-secondary">Budget Remaining</span>
-            </div>
-            <p className="text-2xl font-bold text-text-primary">
-              {budgetRemaining !== null
-                ? formatCurrency(Math.max(budgetRemaining, 0), hostCurrency)
-                : 'No budget'}
-            </p>
+            {/* Budget progress bar */}
             {budget && (
-              <p className="text-sm text-text-tertiary mt-1">
-                {Math.round(budgetPercent)}% used of {formatCurrency(budget.overall, hostCurrency)}
-              </p>
+              <div className="mt-5">
+                <div className="h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
+                  <motion.div
+                    className={`h-full rounded-full ${
+                      budgetPercent > 100 ? 'bg-danger' : budgetPercent > 85 ? 'bg-warning' : 'bg-success'
+                    }`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(budgetPercent, 100)}%` }}
+                    transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
+                  />
+                </div>
+              </div>
             )}
           </GlassCard>
+
+          {/* Secondary stats row */}
+          <div className="grid grid-cols-2 gap-4">
+            <GlassCard className="p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-2 rounded-lg bg-accent-secondary/15">
+                  <HiHomeIcon className="w-4 h-4 text-accent-secondary" />
+                </div>
+                <span className="text-xs text-text-secondary">Home Currency</span>
+              </div>
+              <p className="text-xl font-bold text-text-primary">
+                {formatCurrency(totalSpentHome, homeCurrency)}
+              </p>
+            </GlassCard>
+
+            <GlassCard className="p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`p-2 rounded-lg ${burnRateLevel === 'high' ? 'bg-danger/15' : burnRateLevel === 'medium' ? 'bg-warning/15' : 'bg-success/15'}`}>
+                  {burnRateLevel === 'high'
+                    ? <HiArrowTrendingUp className="w-4 h-4 text-danger" />
+                    : <HiArrowTrendingDown className="w-4 h-4 text-success" />
+                  }
+                </div>
+                <span className="text-xs text-text-secondary">Burn Rate</span>
+              </div>
+              <p className="text-xl font-bold text-text-primary capitalize">{burnRateLevel}</p>
+              <p className="text-[10px] text-text-tertiary mt-0.5">{Math.round(elapsedPct)}% of month elapsed</p>
+            </GlassCard>
+          </div>
         </motion.div>
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <motion.div variants={itemVariants}>
-            <GlassCard>
-              <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-4">Spending by Category</h3>
+        {/* Insights */}
+        <motion.div variants={itemVariants}>
+          <GlassCard className="p-7 md:p-9">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 mb-7">
+              <h3 className="text-sm font-semibold text-text-primary">Insights</h3>
+              <div className="flex items-center gap-1 rounded-xl bg-white/[0.03] border border-white/[0.07] p-1">
+                {insightTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveInsight(tab.id)}
+                    className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                      activeInsight === tab.id
+                        ? 'bg-accent-primary/15 text-accent-primary'
+                        : 'text-text-tertiary hover:text-text-secondary'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {activeInsight === 'category' && (
               <SpendingDonut
                 categoryTotals={summary?.categoryTotals || {}}
                 total={totalSpent}
               />
-            </GlassCard>
-          </motion.div>
-
-          <motion.div variants={itemVariants}>
-            <GlassCard>
-              <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-4">Budget Progress</h3>
+            )}
+            {activeInsight === 'budget' && (
               <BudgetOverview
                 budget={budget}
                 categoryTotals={summary?.categoryTotals || {}}
               />
-            </GlassCard>
-          </motion.div>
-        </div>
+            )}
+            {activeInsight === 'trend' && (
+              <MonthlyTrend data={trendData} />
+            )}
+          </GlassCard>
+        </motion.div>
 
-        {/* Monthly Trend */}
+        {/* Upcoming Bills */}
         <motion.div variants={itemVariants}>
-          <GlassCard>
-            <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary mb-4">Monthly Spending Trend</h3>
-            <MonthlyTrend data={trendData} />
+          <GlassCard className="p-7 md:p-9">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-semibold text-text-primary">Upcoming Bills</h3>
+              <span className="text-xs text-text-tertiary">
+                Next 30 days: {formatCurrency(upcoming30Total, hostCurrency)}
+              </span>
+            </div>
+            {upcomingBills.length === 0 ? (
+              <p className="text-sm text-text-tertiary">No upcoming recurring bills.</p>
+            ) : (
+              <div className="space-y-3">
+                {upcomingBills.slice(0, 6).map((bill, idx) => {
+                  const cat = CATEGORY_MAP[bill.category] || CATEGORY_MAP.other;
+                  return (
+                    <div key={`${bill.recurringId}-${idx}`} className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-sm text-text-primary truncate">{bill.note || cat.label}</p>
+                        <p className="text-xs text-text-tertiary">
+                          {format(bill.dueDate, 'EEE, MMM d')} • {bill.frequency}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold text-text-primary">{formatCurrency(bill.amount, hostCurrency)}</span>
+                    </div>
+                  );
+                })}
+                {upcoming7.length > 0 && (
+                  <p className="text-xs text-warning">
+                    {upcoming7.length} bill{upcoming7.length > 1 ? 's' : ''} due in the next 7 days.
+                  </p>
+                )}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
+
+        {/* Weekly Review */}
+        <motion.div variants={itemVariants}>
+          <GlassCard className="p-7 md:p-8">
+            <h3 className="text-sm font-semibold text-text-primary mb-3">Weekly Review</h3>
+            {weeklyReview ? (
+              <div className="space-y-2">
+                <p className="text-sm text-text-secondary">
+                  {weeklyReview.count} expense{weeklyReview.count !== 1 ? 's' : ''} this week totaling {formatCurrency(weeklyReview.total, hostCurrency)}.
+                </p>
+                <p className="text-xs text-text-tertiary">
+                  Top category: {weeklyReview.topCategory?.label || 'Other'}
+                  {weeklyReview.biggest ? ` • Biggest: ${weeklyReview.biggest.note || 'Expense'} (${formatCurrency(weeklyReview.biggest.amount, hostCurrency)})` : ''}
+                </p>
+                <p className="text-xs text-accent-secondary">{weeklyReview.action}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-text-tertiary">Not enough data for weekly review yet.</p>
+            )}
+          </GlassCard>
+        </motion.div>
+
+        {/* Goals */}
+
+        <motion.div variants={itemVariants}>
+          <GlassCard className="p-7 md:p-9">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-semibold text-text-primary">Savings Goals</h3>
+              <div className="flex gap-2">
+                <Button size="sm" variant="secondary" onClick={handleApplyUnderspend}>Apply Underspend</Button>
+                <Button size="sm" onClick={() => setShowGoalModal(true)} icon={<HiPlus className="w-4 h-4" />}>Add Goal</Button>
+              </div>
+            </div>
+            {goals.length === 0 ? (
+              <p className="text-sm text-text-tertiary">No goals yet. Create your first goal.</p>
+            ) : (
+              <div className="space-y-4">
+                {goals.map((goal) => {
+                  const progress = goal.targetAmount > 0 ? Math.min((goal.currentSaved / goal.targetAmount) * 100, 100) : 0;
+                  return (
+                    <div key={goal.id} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-text-primary">{goal.title}</p>
+                          <p className="text-xs text-text-tertiary">
+                            {formatCurrency(goal.currentSaved || 0, hostCurrency)} / {formatCurrency(goal.targetAmount || 0, hostCurrency)}
+                            {goal.targetDate ? ` • target ${format(new Date(goal.targetDate), 'MMM d, yyyy')}` : ''}
+                          </p>
+                        </div>
+                        <span className="text-xs text-text-secondary">{Math.round(progress)}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-white/[0.08] overflow-hidden">
+                        <div className="h-full rounded-full bg-accent-primary" style={{ width: `${progress}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </GlassCard>
+        </motion.div>
+
+        {/* Monthly Share Card */}
+        <motion.div variants={itemVariants}>
+          <GlassCard className="p-7 md:p-8">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-text-primary">Monthly Summary</h3>
+              <span className="text-xs text-text-tertiary">{currentMonth}</span>
+            </div>
+            <p className="text-sm text-text-secondary mb-4">
+              You spent {formatCurrency(totalSpent, hostCurrency)} across {summary?.transactionCount || 0} transactions.
+              Top category was {topCategory.label}.
+            </p>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleShareMonthlySummary} icon={<HiShare className="w-4 h-4" />}>Share</Button>
+              <Button size="sm" variant="secondary" onClick={handleDownloadMonthlySummary}>Download</Button>
+            </div>
           </GlassCard>
         </motion.div>
 
         {/* Recent Expenses */}
         <motion.div variants={itemVariants}>
-          <GlassCard>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-semibold tracking-wide uppercase text-text-tertiary">Recent Expenses</h3>
+          <GlassCard className="p-7 md:p-9">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-sm font-semibold text-text-primary">Recent Expenses</h3>
             </div>
-            <ExpenseList expenses={recentExpenses} emptyMessage="No expenses yet — add your first one!" />
+            <ExpenseList expenses={recentExpenses} emptyMessage="No expenses yet - add your first one." />
           </GlassCard>
         </motion.div>
       </motion.div>
@@ -261,6 +630,40 @@ export default function DashboardPage() {
         onClose={() => setShowExpenseForm(false)}
         onSubmit={handleAddExpense}
       />
+
+      <Modal isOpen={showGoalModal} onClose={() => setShowGoalModal(false)} title="Create Savings Goal">
+        <form onSubmit={handleCreateGoal} className="space-y-4">
+          <Input
+            label="Goal Name"
+            placeholder="e.g. Summer Trip"
+            value={goalTitle}
+            onChange={(e) => setGoalTitle(e.target.value)}
+          />
+          <Input
+            label="Target Amount"
+            type="number"
+            min="1"
+            step="0.01"
+            placeholder="0.00"
+            value={goalAmount}
+            onChange={(e) => setGoalAmount(e.target.value)}
+          />
+          <Input
+            label="Target Date (optional)"
+            type="date"
+            value={goalDate}
+            onChange={(e) => setGoalDate(e.target.value)}
+          />
+          <Button
+            type="submit"
+            className="w-full"
+            loading={savingGoal}
+            disabled={!goalTitle.trim() || !goalAmount || parseFloat(goalAmount) <= 0}
+          >
+            Save Goal
+          </Button>
+        </form>
+      </Modal>
     </div>
   );
 }

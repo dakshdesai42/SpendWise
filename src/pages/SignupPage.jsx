@@ -112,7 +112,7 @@ export default function SignupPage() {
           <p className="text-text-secondary">Start tracking your spending abroad</p>
         </div>
 
-        <GlassCard animate={false} className="space-y-6">
+        <GlassCard animate={false} className="p-7 md:p-8 space-y-6">
           {/* Step indicator */}
           <div className="flex items-center gap-3">
             <div className={`flex-1 h-1 rounded-full ${step >= 1 ? 'bg-accent-primary' : 'bg-white/10'}`} />

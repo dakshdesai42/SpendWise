@@ -83,7 +83,7 @@ export default function SettingsPage() {
       >
         {/* Account */}
         <motion.div variants={itemVariants}>
-          <GlassCard>
+          <GlassCard className="p-6 md:p-7">
             <h3 className="text-sm font-medium text-text-secondary mb-4">Account</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -106,7 +106,7 @@ export default function SettingsPage() {
 
         {/* Currencies */}
         <motion.div variants={itemVariants}>
-          <GlassCard>
+          <GlassCard className="p-6 md:p-7">
             <h3 className="text-sm font-medium text-text-secondary mb-4">Currencies</h3>
             <div className="space-y-4">
               <Select
@@ -145,7 +145,7 @@ export default function SettingsPage() {
 
         {/* Achievements */}
         <motion.div variants={itemVariants}>
-          <GlassCard>
+          <GlassCard className="p-6 md:p-7">
             <h3 className="text-sm font-medium text-text-secondary mb-4">Achievements</h3>
             <div className="grid grid-cols-2 gap-3">
               {ACHIEVEMENTS.map((a) => {

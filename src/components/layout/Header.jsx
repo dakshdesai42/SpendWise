@@ -29,10 +29,15 @@ export default function Header({ onAddExpense }) {
         </p>
       </div>
 
+      {/* Only show the Add button on desktop — mobile uses the FAB */}
       {onAddExpense && (
-        <Button onClick={onAddExpense} size="sm" icon={<HiPlus className="w-4 h-4" />}>
-          <span className="hidden sm:inline">Add Expense</span>
-          <span className="sm:hidden">Add</span>
+        <Button
+          onClick={onAddExpense}
+          size="sm"
+          icon={<HiPlus className="w-4 h-4" />}
+          className="hidden lg:flex"
+        >
+          Add Expense
         </Button>
       )}
     </header>

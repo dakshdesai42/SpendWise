@@ -35,10 +35,38 @@ export async function addExpense(userId, expense) {
     note: expense.note || '',
     date: Timestamp.fromDate(new Date(expense.date)),
     month,
+    isRecurring: expense.isRecurring || false,
+    frequency: expense.frequency || null,
+    recurringId: expense.recurringId || null,
+    recurringOccurrenceKey: expense.recurringOccurrenceKey || null,
     createdAt: serverTimestamp(),
   });
 
   await updateMonthlySummary(userId, month);
+  return docRef.id;
+}
+
+export async function addExpenseWithOptions(userId, expense, options = {}) {
+  const month = getMonthFromDate(expense.date);
+  const docRef = await addDoc(expensesRef(userId), {
+    amount: expense.amount,
+    amountHome: expense.amountHome,
+    exchangeRate: expense.exchangeRate,
+    category: expense.category,
+    note: expense.note || '',
+    date: Timestamp.fromDate(new Date(expense.date)),
+    month,
+    isRecurring: expense.isRecurring || false,
+    frequency: expense.frequency || null,
+    recurringId: expense.recurringId || null,
+    recurringOccurrenceKey: expense.recurringOccurrenceKey || null,
+    fingerprint: expense.fingerprint || null,
+    createdAt: serverTimestamp(),
+  });
+
+  if (!options.skipSummary) {
+    await updateMonthlySummary(userId, month);
+  }
   return docRef.id;
 }
 
@@ -84,6 +112,21 @@ export async function getRecentExpenses(userId, count = 5) {
     expensesRef(userId),
     orderBy('date', 'desc'),
     limit(count)
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+    date: d.data().date?.toDate?.() || new Date(d.data().date),
+  }));
+}
+
+export async function getExpensesInRange(userId, startDate, endDate) {
+  const q = query(
+    expensesRef(userId),
+    where('date', '>=', Timestamp.fromDate(new Date(startDate))),
+    where('date', '<=', Timestamp.fromDate(new Date(endDate))),
+    orderBy('date', 'desc')
   );
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({
@@ -141,7 +184,12 @@ export async function getMultipleMonthSummaries(userId, months) {
 }
 
 export async function bulkAddExpenses(userId, expenses) {
+  const touchedMonths = new Set();
   for (const expense of expenses) {
-    await addExpense(userId, expense);
+    touchedMonths.add(getMonthFromDate(expense.date));
+    await addExpenseWithOptions(userId, expense, { skipSummary: true });
+  }
+  for (const month of touchedMonths) {
+    await updateMonthlySummary(userId, month);
   }
 }

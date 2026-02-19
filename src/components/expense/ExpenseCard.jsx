@@ -5,7 +5,7 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 import { useCurrency } from '../../context/CurrencyContext';
 
 export default function ExpenseCard({ expense, onEdit, onDelete }) {
-  const { hostCurrency, homeCurrency } = useCurrency();
+  const { hostCurrency } = useCurrency();
   const cat = CATEGORY_MAP[expense.category] || CATEGORY_MAP.other;
 
   return (
@@ -15,11 +15,11 @@ export default function ExpenseCard({ expense, onEdit, onDelete }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -100 }}
       whileHover={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
-      className="flex items-center gap-3.5 p-3.5 md:p-4 rounded-xl border border-white/[0.08] transition-colors group"
+      className="flex items-center gap-4 p-5 md:p-6 rounded-xl border border-white/[0.08] transition-colors group"
     >
       {/* Category icon */}
       <div
-        className="w-10 h-10 md:w-11 md:h-11 rounded-xl flex items-center justify-center text-lg shrink-0"
+        className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0"
         style={{ backgroundColor: `${cat.color}20` }}
       >
         {cat.icon}
@@ -27,32 +27,26 @@ export default function ExpenseCard({ expense, onEdit, onDelete }) {
 
       {/* Details */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-text-primary truncate leading-snug">
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-sm font-medium text-text-primary truncate leading-snug">
             {expense.note || cat.label}
-          </span>
-          <span
-            className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
-            style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
-          >
-            {cat.label}
-          </span>
+          </p>
+          {expense.isRecurring && (
+            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-accent-primary/15 text-accent-primary border border-accent-primary/20 capitalize">
+              🔁 {expense.frequency}
+            </span>
+          )}
         </div>
         <p className="text-xs text-text-secondary mt-0.5">
-          {formatDate(expense.date)}
+          {formatDate(expense.date)} • <span style={{ color: cat.color }}>{cat.label}</span>
         </p>
       </div>
 
       {/* Amount */}
       <div className="text-right shrink-0">
-        <p className="text-sm font-semibold text-text-primary">
+        <p className="text-base font-semibold text-text-primary">
           {formatCurrency(expense.amount, hostCurrency)}
         </p>
-        {hostCurrency !== homeCurrency && (
-          <p className="text-xs text-text-tertiary">
-            ~{formatCurrency(expense.amountHome || 0, homeCurrency)}
-          </p>
-        )}
       </div>
 
       {/* Actions */}

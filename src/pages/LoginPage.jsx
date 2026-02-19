@@ -74,7 +74,7 @@ export default function LoginPage() {
           <p className="text-text-secondary">Track your spending abroad</p>
         </div>
 
-        <GlassCard animate={false} className="space-y-6">
+        <GlassCard animate={false} className="p-7 md:p-8 space-y-6">
           <div className="text-center">
             <h2 className="text-xl font-semibold text-text-primary">Welcome back</h2>
             <p className="text-sm text-text-secondary mt-1">Sign in to your account</p>

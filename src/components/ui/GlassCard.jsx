@@ -23,7 +23,7 @@ export default function GlassCard({ children, className, animate = true, hover =
       className={clsx(
         'rounded-2xl border border-white/[0.12]',
         'bg-white/[0.065] backdrop-blur-xl',
-        'p-5 md:p-6 shadow-xl shadow-black/20',
+        'shadow-xl shadow-black/20',
         'transition-colors duration-200',
         hover && 'cursor-pointer hover:bg-white/[0.09]',
         className

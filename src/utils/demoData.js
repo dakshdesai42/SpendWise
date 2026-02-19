@@ -1,4 +1,4 @@
-import { format, subDays, subMonths } from 'date-fns';
+import { addMonths, format, subDays, subMonths } from 'date-fns';
 
 const today = new Date();
 
@@ -42,6 +42,18 @@ export const DEMO_BUDGET = {
   },
   currency: 'USD',
 };
+
+export const DEMO_RECURRING = [
+  { id: 'r1', amount: 850.00, amountHome: 70975.00, exchangeRate: 83.5, category: 'rent', note: 'Monthly rent', frequency: 'monthly', startDate: subDays(today, 30).toISOString(), isActive: true },
+  { id: 'r2', amount: 15.99, amountHome: 1335.12, exchangeRate: 83.5, category: 'entertainment', note: 'Netflix subscription', frequency: 'monthly', startDate: subDays(today, 60).toISOString(), isActive: true },
+  { id: 'r3', amount: 35.00, amountHome: 2922.50, exchangeRate: 83.5, category: 'health', note: 'Gym membership', frequency: 'monthly', startDate: subDays(today, 90).toISOString(), isActive: true },
+  { id: 'r4', amount: 9.99, amountHome: 834.17, exchangeRate: 83.5, category: 'entertainment', note: 'Spotify Premium', frequency: 'monthly', startDate: subDays(today, 45).toISOString(), isActive: false },
+];
+
+export const DEMO_GOALS = [
+  { id: 'g1', title: 'Japan Trip Fund', targetAmount: 1800, currentSaved: 740, targetDate: format(addMonths(today, 4), 'yyyy-MM-dd'), isActive: true },
+  { id: 'g2', title: 'Emergency Cushion', targetAmount: 2500, currentSaved: 980, targetDate: format(addMonths(today, 8), 'yyyy-MM-dd'), isActive: true },
+];
 
 export const DEMO_TREND = [
   { month: format(subMonths(today, 5), 'MMM'), total: 1650 },
