@@ -1,35 +1,35 @@
 @import "tailwindcss";
 
 @theme {
-  /* Base dark palette */
-  --color-bg-primary: #0a0a1a;
-  --color-bg-secondary: #111128;
-  --color-bg-tertiary: #1a1a3e;
+  /* Base dark palette - True Black */
+  --color-bg-primary: #000000;
+  --color-bg-secondary: #1C1C1E;
+  --color-bg-tertiary: #2C2C2E;
 
-  /* Accent colors */
-  --color-accent-primary: #8b5cf6;
-  --color-accent-secondary: #06b6d4;
-  --color-accent-tertiary: #3b82f6;
+  /* Accent colors - Apple System Default */
+  --color-accent-primary: #0A84FF; /* System Blue */
+  --color-accent-secondary: #BF5AF2; /* System Purple */
+  --color-accent-tertiary: #30D158; /* System Green */
 
   /* Text colors */
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #a7b3c9;
-  --color-text-tertiary: #7f8da6;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #EBEBF599; /* 60% opacity white */
+  --color-text-tertiary: #EBEBF54D; /* 30% opacity white */
 
   /* Status colors */
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
+  --color-success: #32D74B;
+  --color-warning: #FF9F0A;
+  --color-danger: #FF453A;
 
-  /* Category chart colors */
-  --color-chart-food: #8b5cf6;
-  --color-chart-transport: #06b6d4;
-  --color-chart-rent: #3b82f6;
-  --color-chart-entertainment: #f59e0b;
-  --color-chart-education: #10b981;
-  --color-chart-shopping: #ec4899;
-  --color-chart-health: #14b8a6;
-  --color-chart-other: #6b7280;
+  /* Category chart colors - Vibrant */
+  --color-chart-food: #0A84FF;
+  --color-chart-transport: #5E5CE6;
+  --color-chart-rent: #32D74B;
+  --color-chart-entertainment: #FF9F0A;
+  --color-chart-education: #BF5AF2;
+  --color-chart-shopping: #FF375F;
+  --color-chart-health: #64D2FF;
+  --color-chart-other: #8E8E93;
 }
 
 /* Global styles */
@@ -44,7 +44,8 @@
 body {
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif;
+  letter-spacing: -0.015em; /* Default tighter tracking */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
@@ -57,14 +58,15 @@ body {
 
 /* Glass effect utility */
 .glass {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(28, 28, 30, 0.65); /* dark gray tint */
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: none;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .glass-hover:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(44, 44, 46, 0.65);
 }
 
 /* Scrollbar styling */
@@ -136,8 +138,8 @@ textarea:focus {
 
 /* Text selection */
 ::selection {
-  background: rgba(139, 92, 246, 0.28);
-  color: #f8fafc;
+  background: rgba(10, 132, 255, 0.28); /* System Blue tint */
+  color: #ffffff;
 }
 
 @media (prefers-reduced-motion: reduce) {

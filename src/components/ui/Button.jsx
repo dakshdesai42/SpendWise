@@ -3,19 +3,19 @@ import clsx from 'clsx';
 
 const variants = {
   primary:
-    'bg-accent-primary hover:bg-accent-primary/85 text-white shadow-lg shadow-accent-primary/25 border border-accent-primary/35',
+    'bg-accent-primary hover:bg-accent-primary/95 text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_4px_16px_rgba(10,132,255,0.35)]',
   secondary:
-    'bg-white/[0.06] hover:bg-white/[0.12] text-text-primary border border-white/[0.10]',
+    'bg-white/[0.08] hover:bg-white/[0.12] text-text-primary shadow-[inset_0_1px_0px_rgba(255,255,255,0.1)] border border-white/[0.05]',
   danger:
-    'bg-danger/20 hover:bg-danger/30 text-danger border border-danger/20',
+    'bg-danger/90 hover:bg-danger text-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_4px_16px_rgba(255,69,58,0.3)]',
   ghost:
-    'bg-transparent hover:bg-white/[0.06] text-text-secondary hover:text-text-primary',
+    'bg-transparent hover:bg-white/[0.08] text-text-secondary hover:text-text-primary',
 };
 
 const sizes = {
-  sm: 'px-3 py-2 text-sm rounded-lg',
-  md: 'px-4 py-2.5 text-sm rounded-xl',
-  lg: 'px-6 py-3 text-base rounded-xl',
+  sm: 'px-3 py-1.5 text-sm rounded-xl',
+  md: 'px-4 py-2.5 text-sm rounded-2xl',
+  lg: 'px-6 py-3 text-base rounded-2xl',
 };
 
 export default function Button({
@@ -30,8 +30,8 @@ export default function Button({
 }) {
   return (
     <motion.button
-      whileHover={!disabled ? { scale: 1.015 } : undefined}
-      whileTap={!disabled ? { scale: 0.98 } : undefined}
+      whileHover={!disabled ? { scale: 1.02, transition: { type: 'spring', bounce: 0, duration: 0.4 } } : undefined}
+      whileTap={!disabled ? { scale: 0.96, transition: { type: 'spring', bounce: 0, duration: 0.4 } } : undefined}
       className={clsx(
         'inline-flex items-center justify-center gap-2 font-medium leading-none transition-all duration-200',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary',

@@ -380,7 +380,7 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b) => sum + b.amou
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm text-text-secondary mb-2">Spent This Month</p>
-                <p className="text-4xl md:text-5xl font-bold tracking-tight text-text-primary leading-none">
+                <p className="text-5xl md:text-6xl font-semibold tracking-tighter text-text-primary leading-none">
                   {formatCurrency(totalSpent, hostCurrency)}
                 </p>
                 <p className="text-sm text-text-tertiary mt-2.5">
@@ -391,13 +391,12 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b) => sum + b.amou
               {/* Budget status pill — the key answer */}
               {budget ? (
                 <div className={`shrink-0 flex flex-col items-end gap-1.5`}>
-                  <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${
-                    budgetPercent > 100
+                  <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${budgetPercent > 100
                       ? 'bg-danger/15 text-danger'
                       : budgetPercent > 85
-                      ? 'bg-warning/15 text-warning'
-                      : 'bg-success/15 text-success'
-                  }`}>
+                        ? 'bg-warning/15 text-warning'
+                        : 'bg-success/15 text-success'
+                    }`}>
                     {budgetPercent > 100 ? '🔴 Over budget' : budgetPercent > 85 ? '⚠️ Watch it' : '✅ On track'}
                   </span>
                   <p className="text-xs text-text-tertiary text-right">
@@ -416,9 +415,8 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b) => sum + b.amou
               <div className="mt-5">
                 <div className="h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
                   <motion.div
-                    className={`h-full rounded-full ${
-                      budgetPercent > 100 ? 'bg-danger' : budgetPercent > 85 ? 'bg-warning' : 'bg-success'
-                    }`}
+                    className={`h-full rounded-full ${budgetPercent > 100 ? 'bg-danger' : budgetPercent > 85 ? 'bg-warning' : 'bg-success'
+                      }`}
                     initial={{ width: 0 }}
                     animate={{ width: `${Math.min(budgetPercent, 100)}%` }}
                     transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
@@ -437,7 +435,7 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b) => sum + b.amou
                 </div>
                 <span className="text-xs text-text-secondary">Home Currency</span>
               </div>
-              <p className="text-xl font-bold text-text-primary">
+              <p className="text-2xl font-semibold tracking-tight text-text-primary">
                 {formatCurrency(totalSpentHome, homeCurrency)}
               </p>
             </GlassCard>
@@ -452,7 +450,7 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b) => sum + b.amou
                 </div>
                 <span className="text-xs text-text-secondary">Burn Rate</span>
               </div>
-              <p className="text-xl font-bold text-text-primary capitalize">{burnRateLevel}</p>
+              <p className="text-2xl font-semibold tracking-tight text-text-primary capitalize">{burnRateLevel}</p>
               <p className="text-[10px] text-text-tertiary mt-0.5">{Math.round(elapsedPct)}% of month elapsed</p>
             </GlassCard>
           </div>
@@ -468,11 +466,10 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b) => sum + b.amou
                   <button
                     key={tab.id}
                     onClick={() => setActiveInsight(tab.id)}
-                    className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                      activeInsight === tab.id
+                    className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${activeInsight === tab.id
                         ? 'bg-accent-primary/15 text-accent-primary'
                         : 'text-text-tertiary hover:text-text-secondary'
-                    }`}
+                      }`}
                   >
                     {tab.label}
                   </button>
