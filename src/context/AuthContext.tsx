@@ -26,6 +26,21 @@ const DEMO_PROFILE: UserProfile = {
   lastLogin: new Date().toISOString().split('T')[0],
 };
 
+const AUTH_PROFILE_TIMEOUT_MS = 10000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs = AUTH_PROFILE_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error('Timed out while loading user profile.'));
+    }, timeoutMs);
+
+    promise
+      .then((value) => resolve(value))
+      .catch((error) => reject(error))
+      .finally(() => window.clearTimeout(timeoutId));
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -43,14 +58,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const unsubscribe = onAuthStateChanged(auth as Auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      if (firebaseUser) {
-        const userProfile = await getUserProfile(firebaseUser.uid);
-        setProfile(userProfile);
-      } else {
+      try {
+        setUser(firebaseUser);
+        if (firebaseUser) {
+          const userProfile = await withTimeout(getUserProfile(firebaseUser.uid));
+          setProfile(userProfile);
+        } else {
+          setProfile(null);
+        }
+      } catch (error) {
+        console.error('Auth bootstrap failed:', error);
+        // Avoid blocking on splash forever; let the app route to login state.
+        setUser(null);
         setProfile(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return unsubscribe;
@@ -87,4 +110,3 @@ export function useAuth(): AuthContextType {
   }
   return context;
 }
-

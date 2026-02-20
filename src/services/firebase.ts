@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { initializeAuth, browserLocalPersistence, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -20,17 +20,10 @@ let db: Firestore | null = null;
 
 if (isFirebaseConfigured) {
   app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
+  // Use initializeAuth with browserLocalPersistence to avoid indexedDB
+  // hanging on Capacitor iOS (capacitor:// scheme breaks default persistence)
+  auth = initializeAuth(app, { persistence: browserLocalPersistence });
   db = getFirestore(app);
-
-  // Enable offline persistence
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('Firestore persistence unavailable: multiple tabs open');
-    } else if (err.code === 'unimplemented') {
-      console.warn('Firestore persistence not supported by browser');
-    }
-  });
 }
 
 function getDb(): Firestore {
