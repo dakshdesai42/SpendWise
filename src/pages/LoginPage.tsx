@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FcGoogle } from 'react-icons/fc';
 import { HiEnvelope, HiLockClosed } from 'react-icons/hi2';
@@ -11,6 +11,9 @@ import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const startupState = (location.state as { startupState?: string; authError?: string } | null)?.startupState;
+  const authError = (location.state as { startupState?: string; authError?: string } | null)?.authError;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,6 +50,10 @@ export default function LoginPage() {
       await signInWithGoogle();
       navigate('/dashboard');
     } catch (err: any) {
+      if (err.code === 'auth/google-native-unsupported') {
+        toast.error('Google sign-in is not enabled in this iOS beta yet. Use email/password.');
+        return;
+      }
       if (err.code !== 'auth/popup-closed-by-user') {
         toast.error('Failed to sign in with Google');
       }
@@ -98,6 +105,14 @@ export default function LoginPage() {
         </div>
 
         <GlassCard animate={false} className="p-7 md:p-8 space-y-6">
+          {startupState === 'auth_required' && (
+            <div className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5">
+              <p className="text-xs text-warning">
+                {authError || 'Please sign in to continue.'}
+              </p>
+            </div>
+          )}
+
           <div className="text-center">
             <h2 className="text-xl font-semibold text-text-primary">Welcome back</h2>
             <p className="text-sm text-text-secondary mt-1">Sign in to your account</p>

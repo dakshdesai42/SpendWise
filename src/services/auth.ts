@@ -9,10 +9,31 @@ import {
   User,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { Capacitor } from '@capacitor/core';
 import { getAuthInstance, getDb } from './firebase';
 import { UserProfile } from '../types/models';
 
 const googleProvider = new GoogleAuthProvider();
+
+// Detect a reasonable default currency from the browser locale
+function getLocaleCurrency(): string {
+  try {
+    const locale = navigator.language || 'en-US';
+    const parts = new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' })
+      .resolvedOptions();
+    // Use region from locale to map to common currencies
+    const region = locale.split('-')[1]?.toUpperCase();
+    const regionCurrency: Record<string, string> = {
+      US: 'USD', GB: 'GBP', CA: 'CAD', AU: 'AUD', IN: 'INR',
+      EU: 'EUR', DE: 'EUR', FR: 'EUR', IT: 'EUR', ES: 'EUR',
+      JP: 'JPY', CN: 'CNY', KR: 'KRW', SG: 'SGD', MY: 'MYR',
+      PH: 'PHP', TH: 'THB', AE: 'AED', SA: 'SAR', NZ: 'NZD',
+    };
+    return regionCurrency[region] || parts.currency || 'USD';
+  } catch {
+    return 'USD';
+  }
+}
 
 export async function signUp(email: string, password: string, displayName: string, homeCurrency: string, hostCurrency: string): Promise<User> {
   const { user } = await createUserWithEmailAndPassword(getAuthInstance(), email, password);
@@ -44,6 +65,12 @@ export async function resetPassword(email: string): Promise<void> {
 }
 
 export async function signInWithGoogle(homeCurrency?: string, hostCurrency?: string): Promise<User> {
+  if (Capacitor.isNativePlatform()) {
+    const err = new Error('Google sign-in is not enabled for this mobile beta build. Use email/password.');
+    (err as Error & { code?: string }).code = 'auth/google-native-unsupported';
+    throw err;
+  }
+
   const { user } = await signInWithPopup(getAuthInstance(), googleProvider);
 
   const userDoc = await getDoc(doc(getDb(), 'users', user.uid));
@@ -51,8 +78,8 @@ export async function signInWithGoogle(homeCurrency?: string, hostCurrency?: str
     await setDoc(doc(getDb(), 'users', user.uid), {
       displayName: user.displayName || 'User',
       email: user.email,
-      homeCurrency: homeCurrency || 'INR',
-      hostCurrency: hostCurrency || 'USD',
+      homeCurrency: homeCurrency || getLocaleCurrency(),
+      hostCurrency: hostCurrency || getLocaleCurrency(),
       currentStreak: 0,
       longestStreak: 0,
       lastLogDate: null,

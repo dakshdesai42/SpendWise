@@ -18,7 +18,12 @@ export default function LoadingSpinner({ size = 'md', className = '' }: { size?:
   );
 }
 
-export function FullPageLoader() {
+export function FullPageLoader({
+  message = 'Loading your data...',
+}: {
+  state?: 'auth_loading' | 'auth_required' | 'data_loading' | 'ready' | 'error';
+  message?: string;
+}) {
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center gap-4">
       <motion.div
@@ -29,7 +34,7 @@ export function FullPageLoader() {
         SpendWise
       </motion.div>
       <LoadingSpinner size="md" />
-      <p className="text-text-tertiary text-sm">Loading your data...</p>
+      <p className="text-text-tertiary text-sm">{message}</p>
     </div>
   );
 }

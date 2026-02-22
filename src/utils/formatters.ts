@@ -1,16 +1,18 @@
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import { CURRENCY_MAP } from './constants';
+import { formatMonthKey, parseLocalDate, parseMonthKey } from './date';
 
 export function formatCurrency(amount: number, currencyCode: string) {
   const currency = CURRENCY_MAP[currencyCode];
   const symbol = currency?.symbol || currencyCode;
+  const sign = amount < 0 ? '-' : '';
 
   const formatted = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Math.abs(amount));
 
-  return `${symbol}${formatted}`;
+  return `${sign}${symbol}${formatted}`;
 }
 
 export function formatCurrencyCompact(amount: number, currencyCode: string) {
@@ -27,35 +29,32 @@ export function formatCurrencyCompact(amount: number, currencyCode: string) {
 }
 
 export function formatDate(date: string | Date | number) {
-  const d = date instanceof Date ? date : new Date(date);
+  const d = parseLocalDate(date);
   if (isToday(d)) return 'Today';
   if (isYesterday(d)) return 'Yesterday';
   return format(d, 'MMM d, yyyy');
 }
 
 export function formatDateShort(date: string | Date | number) {
-  const d = date instanceof Date ? date : new Date(date);
+  const d = parseLocalDate(date);
   return format(d, 'MMM d');
 }
 
 export function formatMonth(monthStr: string) {
-  const [year, month] = monthStr.split('-');
-  const date = new Date(parseInt(year), parseInt(month) - 1);
-  return format(date, 'MMMM yyyy');
+  return format(parseMonthKey(monthStr), 'MMMM yyyy');
 }
 
 export function formatRelative(date: string | Date | number) {
-  const d = date instanceof Date ? date : new Date(date);
+  const d = parseLocalDate(date);
   return formatDistanceToNow(d, { addSuffix: true });
 }
 
 export function getCurrentMonth() {
-  return format(new Date(), 'yyyy-MM');
+  return formatMonthKey(new Date());
 }
 
 export function getMonthFromDate(date: string | Date | number) {
-  const d = date instanceof Date ? date : new Date(date);
-  return format(d, 'yyyy-MM');
+  return formatMonthKey(date);
 }
 
 export function percentOf(value: number, total: number) {

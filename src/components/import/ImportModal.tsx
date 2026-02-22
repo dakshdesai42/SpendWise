@@ -91,7 +91,7 @@ async function processFile(file: File, hostCurrency: string) {
   }
   if (name.endsWith('.csv') || name.endsWith('.txt')) {
     const text = await file.text();
-    const parsed = parseCSV(text);
+    const parsed = parseCSV(text, hostCurrency);
     if (!parsed.length) {
       throw new Error('No recognizable transactions in CSV/TXT. Check date/amount columns.');
     }
@@ -195,7 +195,11 @@ export default function ImportModal({ isOpen, onClose, onImported }: { isOpen: b
     let existingFingerprints = new Set();
     try {
       const dates = merged.map((t) => t.date).sort();
-      if (!user) return;
+      if (!user) {
+        toast.error('Your session expired. Please sign in again, then retry import.');
+        setStep('upload');
+        return;
+      }
       const existing = await getExpensesInRange(user.uid, dates[0], dates[dates.length - 1]);
       existingFingerprints = new Set(
         existing
@@ -302,7 +306,11 @@ export default function ImportModal({ isOpen, onClose, onImported }: { isOpen: b
 
     setImporting(true);
     try {
-      if (!user) return;
+      if (!user) {
+        toast.error('Your session expired. Please sign in again, then retry import.');
+        setStep('upload');
+        return;
+      }
       await bulkAddExpenses(user.uid, toImport);
       toast.success(`Imported ${toImport.length} expense${toImport.length !== 1 ? 's' : ''}!`);
       handleClose();
@@ -330,6 +338,12 @@ export default function ImportModal({ isOpen, onClose, onImported }: { isOpen: b
             transition={{ duration: 0.2 }}
             className="py-6"
           >
+            <div className="mb-4 self-stretch rounded-xl border border-warning/30 bg-warning/10 px-3 py-2">
+              <p className="text-[11px] text-warning">
+                PDF import is a Beta feature and may be less reliable. For best results, use CSV export from your bank.
+              </p>
+            </div>
+
             {/* Drop zone */}
             <div
               onDrop={handleDrop}
@@ -368,7 +382,7 @@ export default function ImportModal({ isOpen, onClose, onImported }: { isOpen: b
             {/* Format hints */}
             <div className="flex gap-3 mt-4">
               {[
-                { icon: '📑', label: 'PDF', hint: 'Bank-generated statements' },
+                { icon: '📑', label: 'PDF (Beta)', hint: 'Bank-generated statements' },
                 { icon: '📊', label: 'CSV', hint: 'Excel / data exports' },
                 { icon: '📦', label: 'Multiple files', hint: 'Import several months at once' },
               ].map(({ icon, label, hint }) => (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useFAB } from '../context/FABContext';
 import {
@@ -24,13 +24,23 @@ import GlassCard from '../components/ui/GlassCard';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ExpenseForm from '../components/expense/ExpenseForm';
 import ExpenseList from '../components/expense/ExpenseList';
-import SpendingDonut from '../components/charts/SpendingDonut';
-import MonthlyTrend from '../components/charts/MonthlyTrend';
-import BudgetOverview from '../components/budget/BudgetOverview';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
+import { parseLocalDate } from '../utils/date';
+
+const SpendingDonut = lazy(() => import('../components/charts/SpendingDonut'));
+const MonthlyTrend = lazy(() => import('../components/charts/MonthlyTrend'));
+const BudgetOverview = lazy(() => import('../components/budget/BudgetOverview'));
+
+function InsightLoadingState() {
+  return (
+    <div className="h-64 flex items-center justify-center">
+      <LoadingSpinner size="md" />
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const { user, profile, demoMode } = useAuth();
@@ -44,11 +54,12 @@ export default function DashboardPage() {
   const [goalDate, setGoalDate] = useState('');
   const [savingGoal, setSavingGoal] = useState(false);
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
+  const [retryingData, setRetryingData] = useState(false);
   const currentMonth = getCurrentMonth();
 
   const {
     recentExpenses, summary, budget, goals, upcomingBills,
-    weeklyReview, trendData, isLoading: loading, hasError, errorMessage, debugStatus
+    weeklyReview, trendData, isLoading: loading, hasError, refetchAll
   } = useDashboardData(user?.uid, currentMonth, demoMode);
 
   const { mutateAsync: addExpenseMutate } = useAddExpense();
@@ -58,7 +69,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user?.uid && !demoMode) {
-      autoPostRecurring({ userId: user.uid, month: currentMonth });
+      autoPostRecurring({ userId: user.uid, month: currentMonth }).catch(() => {
+        // Non-blocking background sync.
+      });
     }
   }, [user?.uid, currentMonth, demoMode, autoPostRecurring]);
 
@@ -76,6 +89,15 @@ export default function DashboardPage() {
     setFABAction(() => setShowExpenseForm(true));
     return () => setFABAction(null);
   }, []);
+
+  async function handleRetryDataLoad() {
+    setRetryingData(true);
+    try {
+      await refetchAll();
+    } finally {
+      setRetryingData(false);
+    }
+  }
 
   async function handleAddExpense(data: any) {
     if (demoMode) {
@@ -190,7 +212,7 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
   const totalSpent = summary?.totalSpent || 0;
   const totalSpentHome = summary?.totalSpentHome || 0;
   const budgetRemaining = budget ? budget.overall - totalSpent : null;
-  const budgetPercent = budget ? (totalSpent / budget.overall) * 100 : 0;
+  const budgetPercent = budget && budget.overall > 0 ? (totalSpent / budget.overall) * 100 : 0;
   const streak = profile?.currentStreak || 0;
   const monthStart = startOfMonth(new Date());
   const monthEnd = endOfMonth(new Date());
@@ -206,17 +228,16 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const loggedToday = recentExpenses.some(
-    (e: any) => format(new Date(e.date), 'yyyy-MM-dd') === todayStr
+    (e: any) => format(parseLocalDate(e.date), 'yyyy-MM-dd') === todayStr
   );
   const insightTabs = [
     { id: 'trend', label: 'Trend' },
     { id: 'category', label: 'Category' },
     { id: 'budget', label: 'Budget' },
   ];
-
   if (loading && !loadingTimedOut) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -235,16 +256,13 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
         {(hasError || loadingTimedOut) && !demoMode && (
           <motion.div variants={itemVariants} className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
             <p className="text-sm text-warning">
-              Some data could not be loaded from Firebase. Check Authentication/Firestore setup, then refresh.
+              Some data could not be loaded. Please check your connection and try again.
             </p>
-            {errorMessage && (
-              <p className="text-xs text-warning/90 mt-1 break-all">
-                {errorMessage}
-              </p>
-            )}
-            <p className="text-[11px] text-warning/80 mt-1 break-all">
-              {debugStatus}
-            </p>
+            <div className="mt-3">
+              <Button size="sm" onClick={handleRetryDataLoad} loading={retryingData}>
+                Retry now
+              </Button>
+            </div>
           </motion.div>
         )}
 
@@ -337,6 +355,7 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
               <p className="text-2xl font-semibold tracking-tight text-text-primary">
                 {formatCurrency(totalSpentHome, homeCurrency)}
               </p>
+              <p className="text-[9px] text-text-tertiary mt-1">Based on rates at time of entry</p>
             </GlassCard>
 
             <GlassCard className="p-5">
@@ -377,19 +396,25 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
             </div>
 
             {activeInsight === 'category' && (
-              <SpendingDonut
-                categoryTotals={summary?.categoryTotals || {}}
-                total={totalSpent}
-              />
+              <Suspense fallback={<InsightLoadingState />}>
+                <SpendingDonut
+                  categoryTotals={summary?.categoryTotals || {}}
+                  total={totalSpent}
+                />
+              </Suspense>
             )}
             {activeInsight === 'budget' && (
-              <BudgetOverview
-                budget={budget}
-                categoryTotals={summary?.categoryTotals || {}}
-              />
+              <Suspense fallback={<InsightLoadingState />}>
+                <BudgetOverview
+                  budget={budget}
+                  categoryTotals={summary?.categoryTotals || {}}
+                />
+              </Suspense>
             )}
             {activeInsight === 'trend' && (
-              <MonthlyTrend data={trendData} />
+              <Suspense fallback={<InsightLoadingState />}>
+                <MonthlyTrend data={trendData} />
+              </Suspense>
             )}
           </GlassCard>
         </motion.div>
@@ -476,7 +501,7 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
                           <p className="text-sm text-text-primary">{goal.title}</p>
                           <p className="text-xs text-text-tertiary">
                             {formatCurrency(goal.currentSaved || 0, hostCurrency)} / {formatCurrency(goal.targetAmount || 0, hostCurrency)}
-                            {goal.targetDate ? ` • target ${format(new Date(goal.targetDate), 'MMM d, yyyy')}` : ''}
+                            {goal.targetDate ? ` • target ${format(parseLocalDate(goal.targetDate), 'MMM d, yyyy')}` : ''}
                           </p>
                         </div>
                         <span className="text-xs text-text-secondary">{Math.round(progress)}%</span>

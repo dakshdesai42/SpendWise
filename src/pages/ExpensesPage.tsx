@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFAB } from '../context/FABContext';
 import { format, addMonths, subMonths } from 'date-fns';
@@ -19,6 +19,7 @@ import {
   autoPostRecurringForMonth,
 } from '../services/recurring';
 import { getCurrentMonth, formatMonth, formatCurrency } from '../utils/formatters';
+import { parseLocalDate, parseMonthKey } from '../utils/date';
 import { CATEGORIES, CATEGORY_MAP } from '../utils/constants';
 import { DEMO_EXPENSES, DEMO_RECURRING } from '../utils/demoData';
 import GlassCard from '../components/ui/GlassCard';
@@ -26,11 +27,12 @@ import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ExpenseForm from '../components/expense/ExpenseForm';
 import ExpenseList from '../components/expense/ExpenseList';
-import ImportModal from '../components/import/ImportModal';
 import ConfirmSheet from '../components/ui/ConfirmSheet';
 import clsx from 'clsx';
 import { Expense, RecurringBill } from '../types/models';
 import toast from 'react-hot-toast';
+
+const ImportModal = lazy(() => import('../components/import/ImportModal'));
 
 export default function ExpensesPage() {
   const { user, demoMode } = useAuth();
@@ -68,7 +70,12 @@ export default function ExpensesPage() {
   async function loadAll() {
     setLoading(true);
     try {
-      await autoPostRecurringForMonth(user!.uid, month);
+      try {
+        await autoPostRecurringForMonth(user!.uid, month);
+      } catch (err) {
+        // Non-blocking: user should still be able to view/manage existing data.
+        console.warn('Recurring auto-post failed:', err);
+      }
       const [expData, recData] = await Promise.all([
         getExpensesByMonth(user!.uid, month),
         getRecurringExpenses(user!.uid),
@@ -84,23 +91,31 @@ export default function ExpensesPage() {
 
   async function handleAdd(data: Omit<Expense, 'id'>) {
     if (demoMode) { toast.success('Expense added! (Demo mode)'); return; }
-    if (data.isRecurring) {
-      await addRecurringExpense(user!.uid, { ...data, startDate: data.date } as Omit<RecurringBill, 'id'>);
-      toast.success('Recurring expense added!');
-    } else {
-      await addExpense(user!.uid, data);
-      toast.success('Expense added!');
+    try {
+      if (data.isRecurring) {
+        await addRecurringExpense(user!.uid, { ...data, startDate: data.date } as Omit<RecurringBill, 'id'>);
+        toast.success('Recurring expense added!');
+      } else {
+        await addExpense(user!.uid, data);
+        toast.success('Expense added!');
+      }
+      loadAll();
+    } catch {
+      toast.error('Failed to add expense');
     }
-    loadAll();
   }
 
   async function handleEdit(data: Omit<Expense, 'id'>) {
     if (demoMode) { toast.success('Expense updated! (Demo mode)'); return; }
     if (!editingExpense?.id) return;
-    await updateExpense(user!.uid, editingExpense.id, data);
-    toast.success('Expense updated!');
-    setEditingExpense(null);
-    loadAll();
+    try {
+      await updateExpense(user!.uid, editingExpense.id, data);
+      toast.success('Expense updated!');
+      setEditingExpense(null);
+      loadAll();
+    } catch {
+      toast.error('Failed to update expense');
+    }
   }
 
   function handleDelete(expense: Expense) {
@@ -124,8 +139,12 @@ export default function ExpensesPage() {
       } else {
         const recurringExpense = confirmDelete.item as RecurringBill;
         if (!recurringExpense.id) return;
-        await deleteRecurringExpense(user!.uid, recurringExpense.id);
-        toast.success('Recurring expense removed');
+        const { deletedFutureOccurrences } = await deleteRecurringExpense(user!.uid, recurringExpense.id);
+        if (deletedFutureOccurrences > 0) {
+          toast.success(`Recurring expense removed and ${deletedFutureOccurrences} future occurrence${deletedFutureOccurrences === 1 ? '' : 's'} deleted`);
+        } else {
+          toast.success('Recurring expense removed');
+        }
       }
       loadAll();
     } catch {
@@ -142,12 +161,12 @@ export default function ExpensesPage() {
   }
 
   function prevMonth() {
-    const d = new Date(month + '-01');
+    const d = parseMonthKey(month);
     setMonth(format(subMonths(d, 1), 'yyyy-MM'));
   }
 
   function nextMonth() {
-    const d = new Date(month + '-01');
+    const d = parseMonthKey(month);
     const next = format(addMonths(d, 1), 'yyyy-MM');
     if (next <= getCurrentMonth()) setMonth(next);
   }
@@ -179,7 +198,7 @@ export default function ExpensesPage() {
             onClick={() => setShowImport(true)}
             icon={<HiArrowUpTray className="w-4 h-4" />}
           >
-            <span className="hidden sm:inline">Import</span>
+            <span className="hidden sm:inline">Import (Beta)</span>
           </Button>
           <Button
             onClick={() => { setEditingExpense(null); setShowForm(true); }}
@@ -216,7 +235,12 @@ export default function ExpensesPage() {
           <motion.div key="transactions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {/* Month Selector */}
             <div className="flex items-center justify-center gap-4 mb-6 md:mb-8">
-              <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-white/[0.06] text-text-secondary transition-colors">
+              <button
+                onClick={prevMonth}
+                className="p-2 rounded-lg hover:bg-white/[0.06] text-text-secondary transition-colors"
+                aria-label="Previous month"
+                type="button"
+              >
                 <HiChevronLeft className="w-5 h-5" />
               </button>
               <span className="text-lg font-semibold text-text-primary min-w-[160px] text-center">
@@ -231,6 +255,8 @@ export default function ExpensesPage() {
                     : 'hover:bg-white/[0.06] text-text-secondary'
                 )}
                 disabled={month >= getCurrentMonth()}
+                aria-label="Next month"
+                type="button"
               >
                 <HiChevronRight className="w-5 h-5" />
               </button>
@@ -338,7 +364,7 @@ export default function ExpensesPage() {
                           </div>
                           <p className="text-xs text-text-secondary mt-0.5">
                             <span style={{ color: cat.color }}>{cat.label}</span>
-                            {rec.startDate && ` • Started ${format(new Date(rec.startDate), 'MMM d, yyyy')}`}
+                            {rec.startDate && ` • Started ${format(parseLocalDate(rec.startDate), 'MMM d, yyyy')}`}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
@@ -349,15 +375,19 @@ export default function ExpensesPage() {
                         </div>
                         <div className="flex gap-1 shrink-0">
                           <button
+                            type="button"
                             onClick={() => handleToggleRecurring(rec)}
                             className="p-1.5 rounded-lg text-text-tertiary hover:text-accent-primary hover:bg-white/[0.08] transition-colors"
                             title={rec.isActive ? 'Pause' : 'Resume'}
+                            aria-label={rec.isActive ? 'Pause recurring expense' : 'Resume recurring expense'}
                           >
                             {rec.isActive ? <HiPause className="w-4 h-4" /> : <HiPlay className="w-4 h-4" />}
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleDeleteRecurring(rec)}
                             className="p-1.5 rounded-lg text-text-tertiary hover:text-danger hover:bg-danger/10 transition-colors"
+                            aria-label="Delete recurring expense"
                           >
                             <HiTrash className="w-4 h-4" />
                           </button>
@@ -380,16 +410,20 @@ export default function ExpensesPage() {
         initialData={editingExpense}
       />
 
-      <ImportModal
-        isOpen={showImport}
-        onClose={() => setShowImport(false)}
-        onImported={loadAll}
-      />
+      <Suspense fallback={null}>
+        <ImportModal
+          isOpen={showImport}
+          onClose={() => setShowImport(false)}
+          onImported={loadAll}
+        />
+      </Suspense>
 
       <ConfirmSheet
         isOpen={!!confirmDelete}
         title={confirmDelete?.type === 'recurring' ? 'Remove Recurring Expense?' : 'Delete Expense?'}
-        message="This can't be undone."
+        message={confirmDelete?.type === 'recurring'
+          ? "This will remove this recurring rule and delete its future auto-generated expenses. Past entries stay."
+          : "This can't be undone."}
         confirmLabel={confirmDelete?.type === 'recurring' ? 'Remove' : 'Delete'}
         onConfirm={executeDelete}
         onCancel={() => setConfirmDelete(null)}

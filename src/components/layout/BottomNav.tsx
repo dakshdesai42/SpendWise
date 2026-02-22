@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Capacitor } from '@capacitor/core';
+import { Keyboard } from '@capacitor/keyboard';
 import {
   HiHome,
   HiCreditCard,
@@ -19,9 +22,66 @@ const rightItems = [
 ];
 
 export default function BottomNav({ onAddExpense }: { onAddExpense?: () => void }) {
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const isNative = Capacitor.isNativePlatform();
+
+    let removeNativeListeners: (() => void) | null = null;
+    if (isNative) {
+      let showHandle: { remove: () => void } | null = null;
+      let hideHandle: { remove: () => void } | null = null;
+      let unmounted = false;
+
+      Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true))
+        .then((h) => { if (unmounted) h.remove(); else showHandle = h; });
+      Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false))
+        .then((h) => { if (unmounted) h.remove(); else hideHandle = h; });
+
+      removeNativeListeners = () => {
+        unmounted = true;
+        showHandle?.remove();
+        hideHandle?.remove();
+      };
+    }
+
+    const viewport = window.visualViewport;
+    const updateKeyboardInset = () => {
+      if (!viewport) return;
+      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      document.documentElement.style.setProperty('--keyboard-offset', `${Math.round(inset)}px`);
+      // Web fallback for keyboard overlap in browsers/PWAs.
+      if (!isNative) {
+        setKeyboardVisible(inset > 80);
+      }
+    };
+
+    updateKeyboardInset();
+    viewport?.addEventListener('resize', updateKeyboardInset);
+    viewport?.addEventListener('scroll', updateKeyboardInset);
+    window.addEventListener('orientationchange', updateKeyboardInset);
+
+    return () => {
+      removeNativeListeners?.();
+      viewport?.removeEventListener('resize', updateKeyboardInset);
+      viewport?.removeEventListener('scroll', updateKeyboardInset);
+      window.removeEventListener('orientationchange', updateKeyboardInset);
+      document.documentElement.style.setProperty('--keyboard-offset', '0px');
+    };
+  }, []);
+
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-bg-secondary/95 backdrop-blur-xl border-t border-white/[0.08]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="flex items-center h-[4.25rem] px-2">
+    <nav
+      className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/[0.08] bg-bg-secondary/95 shadow-[0_-8px_24px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-transform duration-200 ${
+        keyboardVisible ? 'translate-y-full pointer-events-none' : 'translate-y-0'
+      }`}
+      style={{
+        paddingBottom: 'var(--safe-area-bottom)',
+        paddingLeft: 'max(0.5rem, var(--safe-area-left))',
+        paddingRight: 'max(0.5rem, var(--safe-area-right))',
+      }}
+    >
+      <div className="flex h-[4.5rem] items-center px-1.5">
         {/* Left side */}
         <div className="flex flex-1 justify-around">
           {leftItems.map((item) => (
@@ -34,7 +94,8 @@ export default function BottomNav({ onAddExpense }: { onAddExpense?: () => void 
           <motion.button
             onClick={onAddExpense}
             whileTap={{ scale: 0.9 }}
-            className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg shadow-accent-primary/30 -mt-6"
+            className="flex h-[3.75rem] w-[3.75rem] -mt-7 items-center justify-center rounded-full border border-white/20 shadow-lg shadow-accent-primary/35"
+            aria-label="Add expense"
             style={{
               background: 'linear-gradient(135deg, var(--color-accent-primary) 0%, #0066d6 100%)',
             }}
@@ -58,7 +119,8 @@ function NavTabItem({ item }: { item: { to: string; icon: any; label: string } }
   return (
     <NavLink
       to={item.to}
-      className="flex flex-col items-center justify-center gap-1 w-14 py-1.5 relative"
+      className="relative flex min-h-11 w-[4.25rem] flex-col items-center justify-center gap-1 rounded-2xl py-1.5"
+      aria-label={item.label}
     >
       {({ isActive }) => (
         <>
@@ -75,7 +137,7 @@ function NavTabItem({ item }: { item: { to: string; icon: any; label: string } }
               }`}
           />
           <span
-            className={`text-[10px] font-semibold tracking-wide relative z-10 transition-colors duration-200 ${isActive ? 'text-accent-primary' : 'text-text-tertiary'
+            className={`text-[11px] font-semibold tracking-wide relative z-10 transition-colors duration-200 ${isActive ? 'text-accent-primary' : 'text-text-tertiary'
               }`}
           >
             {item.label}

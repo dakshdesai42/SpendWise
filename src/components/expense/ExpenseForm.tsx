@@ -9,6 +9,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { formatCurrency } from '../../utils/formatters';
 import { Expense } from '../../types/models';
 import clsx from 'clsx';
+import { parseLocalDate } from '../../utils/date';
 
 const RECENT_KEY = 'sw_recent_categories';
 
@@ -67,11 +68,17 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
         setAmount(initialData.amount?.toString() || '');
         setCategory(initialData.category || '');
         setNote(initialData.note || '');
-        setDate(initialData.date ? format(new Date(initialData.date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
+        setDate(initialData.date ? format(parseLocalDate(initialData.date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
         setIsRecurring(initialData.isRecurring || false);
         setFrequency(initialData.frequency || 'monthly');
       } else {
-        // New expense: refresh category sort but keep other fields
+        // New expense: clear any stale edit data and refresh category sort
+        setAmount('');
+        setCategory('');
+        setNote('');
+        setDate(format(new Date(), 'yyyy-MM-dd'));
+        setIsRecurring(false);
+        setFrequency('monthly');
         setSortedCats(getSortedCategories());
       }
       // Autofocus amount
@@ -99,7 +106,7 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!amount || !category) return;
+    if (!amount || !category || numericAmount <= 0) return;
 
     setLoading(true);
     try {
@@ -275,7 +282,7 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
           className="w-full"
           size="lg"
           loading={loading}
-          disabled={!amount || !category}
+          disabled={!amount || !category || numericAmount <= 0}
         >
           {isEditing ? 'Save Changes' : 'Add Expense'}
         </Button>

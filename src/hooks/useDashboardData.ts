@@ -12,6 +12,7 @@ import { format, subMonths, startOfWeek, endOfWeek, subWeeks, endOfDay } from 'd
 import { CATEGORY_MAP } from '../utils/constants';
 import { DEMO_EXPENSES, DEMO_SUMMARY, DEMO_BUDGET, DEMO_TREND, DEMO_RECURRING, DEMO_GOALS } from '../utils/demoData';
 import { Expense, WeeklyReview } from '../types/models';
+import { parseMonthKey } from '../utils/date';
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
     return Promise.race([
@@ -36,13 +37,24 @@ function buildWeeklyReviewFromExpenses(thisWeekExpenses: Expense[] = [], prevWee
     const topCategory = CATEGORY_MAP[topCategoryId] || CATEGORY_MAP.other;
     const biggest = [...thisWeekExpenses].sort((a, b) => (b.amount || 0) - (a.amount || 0))[0];
 
+    let action: string;
+    if (prevTotal === 0 && total > 0) {
+        action = 'First week of tracking! Keep logging expenses to build your baseline.';
+    } else if (change > 10) {
+        action = 'Spending pace is high this week. Consider a low-spend weekend.';
+    } else if (change < -10) {
+        action = 'Great job! Spending is down from last week.';
+    } else {
+        action = 'Your spend pace is stable. Keep your current routine.';
+    }
+
     return {
         total,
         count: thisWeekExpenses.length,
         change,
         topCategory,
         biggest,
-        action: change > 10 ? 'Spending pace is high this week. Consider a low-spend weekend.' : 'Your spend pace is stable. Keep your current routine.',
+        action,
     };
 }
 
@@ -117,38 +129,32 @@ export function useDashboardData(userId: string | undefined, currentMonth: strin
     const trendData = demoMode
         ? DEMO_TREND
         : trendMonths.map((m) => ({
-            month: format(new Date(m + '-01'), 'MMM'),
+            month: format(parseMonthKey(m), 'MMM'),
             total: trendQuery.data?.[m]?.totalSpent || 0,
         }));
 
     const weeklyReview = demoMode
         ? buildWeeklyReviewFromExpenses(DEMO_EXPENSES)
-        : thisWeekQuery.data && prevWeekQuery.data
-            ? buildWeeklyReviewFromExpenses(thisWeekQuery.data, prevWeekQuery.data)
+        : (thisWeekQuery.isSuccess || prevWeekQuery.isSuccess)
+            ? buildWeeklyReviewFromExpenses(thisWeekQuery.data || [], prevWeekQuery.data || [])
             : null;
 
-    const isLoading = !demoMode && (
-        recentQuery.isLoading || summaryQuery.isLoading || budgetQuery.isLoading ||
-        goalsQuery.isLoading || recurringQuery.isLoading || trendQuery.isLoading ||
-        thisWeekQuery.isLoading || prevWeekQuery.isLoading
-    );
+    const criticalQueries = [
+        recentQuery,
+        summaryQuery,
+        budgetQuery,
+        goalsQuery,
+        recurringQuery,
+        trendQuery,
+    ];
 
-    const hasError = !demoMode && (
-        recentQuery.isError || summaryQuery.isError || budgetQuery.isError ||
-        goalsQuery.isError || recurringQuery.isError || trendQuery.isError ||
-        thisWeekQuery.isError || prevWeekQuery.isError
-    );
+    const isLoading = !demoMode && criticalQueries.some((q) => q.isLoading);
 
-    const firstError = [
-        recentQuery.error,
-        summaryQuery.error,
-        budgetQuery.error,
-        goalsQuery.error,
-        recurringQuery.error,
-        trendQuery.error,
-        thisWeekQuery.error,
-        prevWeekQuery.error,
-    ].find(Boolean) as Error | undefined;
+    const hasError = !demoMode && criticalQueries.some((q) => q.isError);
+
+    const firstError = criticalQueries
+        .map((q) => q.error)
+        .find(Boolean) as Error | undefined;
 
     const errorMessage = firstError?.message || null;
     const debugStatus = [
@@ -162,6 +168,19 @@ export function useDashboardData(userId: string | undefined, currentMonth: strin
         `prevWeek:${prevWeekQuery.status}/${prevWeekQuery.fetchStatus}`,
     ].join(' | ');
 
+    async function refetchAll() {
+        await Promise.allSettled([
+            recentQuery.refetch(),
+            summaryQuery.refetch(),
+            budgetQuery.refetch(),
+            goalsQuery.refetch(),
+            recurringQuery.refetch(),
+            trendQuery.refetch(),
+            thisWeekQuery.refetch(),
+            prevWeekQuery.refetch(),
+        ]);
+    }
+
     return {
         recentExpenses: demoMode ? DEMO_EXPENSES.slice(0, 5) : (recentQuery.data || []),
         summary: demoMode ? DEMO_SUMMARY : (summaryQuery.data || null),
@@ -173,6 +192,7 @@ export function useDashboardData(userId: string | undefined, currentMonth: strin
         isLoading,
         hasError,
         errorMessage,
-        debugStatus
+        debugStatus,
+        refetchAll
     };
 }

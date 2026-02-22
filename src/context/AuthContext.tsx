@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  authError: string | null;
   demoMode: boolean;
   refreshProfile: () => Promise<void>;
   isAuthenticated: boolean;
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
@@ -53,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setDemoMode(true);
       setUser({ uid: 'demo-user', displayName: 'Demo Student', email: 'demo@university.edu' } as User);
       setProfile(DEMO_PROFILE);
+      setAuthError(null);
       setLoading(false);
       return;
     }
@@ -66,11 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setProfile(null);
         }
+        setAuthError(null);
       } catch (error) {
-        console.error('Auth bootstrap failed:', error);
-        // Avoid blocking on splash forever; let the app route to login state.
-        setUser(null);
+        console.error('Auth profile fetch failed:', error);
+        // Keep the user authenticated — only the profile failed to load.
+        // Setting user to null would kick an authenticated user back to login
+        // on iOS network transitions (WiFi→cellular) or slow connections.
         setProfile(null);
+        setAuthError(error instanceof Error ? error.message : 'Profile fetch failed');
       } finally {
         setLoading(false);
       }
@@ -91,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     profile,
     loading,
+    authError,
     demoMode,
     refreshProfile,
     isAuthenticated: !!user,

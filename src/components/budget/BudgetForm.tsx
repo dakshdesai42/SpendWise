@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
@@ -13,6 +13,12 @@ export default function BudgetForm({ isOpen, onClose, onSubmit, initialData }: {
   );
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setOverall(initialData?.overall?.toString() || '');
+    setCategories(initialData?.categories ? { ...initialData.categories } : {});
+  }, [isOpen]);
+
   function updateCategory(catId: string, value: string) {
     setCategories((prev) => ({
       ...prev,
@@ -22,12 +28,13 @@ export default function BudgetForm({ isOpen, onClose, onSubmit, initialData }: {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!overall) return;
+    const overallNum = parseFloat(overall);
+    if (!overall || !overallNum || overallNum <= 0) return;
 
     setLoading(true);
     try {
       await onSubmit({
-        overall: parseFloat(overall),
+        overall: overallNum,
         categories,
         currency: hostCurrency,
       });
@@ -72,7 +79,7 @@ export default function BudgetForm({ isOpen, onClose, onSubmit, initialData }: {
           </div>
         </div>
 
-        <Button type="submit" className="w-full" size="lg" loading={loading} disabled={!overall}>
+        <Button type="submit" className="w-full" size="lg" loading={loading} disabled={!overall || parseFloat(overall) <= 0}>
           Save Budget
         </Button>
       </form>

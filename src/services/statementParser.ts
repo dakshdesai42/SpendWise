@@ -1,5 +1,4 @@
 import * as pdfjsLib from 'pdfjs-dist';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { CATEGORIES } from '../utils/constants';
 import { ParsedTransaction } from '../types/models';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -39,7 +38,11 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   ]);
 }
 
-export function parseCSV(text: string): ParsedTransaction[] {
+// US-format currencies where MM/DD is the standard date format
+const MDY_CURRENCIES = new Set(['USD', 'PHP']);
+
+export function parseCSV(text: string, hostCurrency = ''): ParsedTransaction[] {
+  const preferMDY = MDY_CURRENCIES.has(hostCurrency);
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
   if (lines.length < 2) return [];
 
@@ -76,7 +79,7 @@ export function parseCSV(text: string): ParsedTransaction[] {
 
   if (dateIdx === -1 || (amountIdx === -1 && creditIdx === -1)) {
     // Fallback: try positional guessing on first 4 columns
-    return parseCSVPositional(lines, delim, splitRow);
+    return parseCSVPositional(lines, delim, splitRow, preferMDY);
   }
 
   const transactions = [];
@@ -88,7 +91,7 @@ export function parseCSV(text: string): ParsedTransaction[] {
     const rawDesc = descIdx >= 0 ? cells[descIdx] : '';
     const rawAmount = amountIdx >= 0 ? cells[amountIdx] : '';
 
-    const dateStr = normalizeDate(rawDate);
+    const dateStr = normalizeDate(rawDate, preferMDY);
     if (!dateStr) continue;
 
     // Only import debits (spending). Skip pure credit rows unless it's a combined amount column.
@@ -121,13 +124,13 @@ export function parseCSV(text: string): ParsedTransaction[] {
   return transactions;
 }
 
-function parseCSVPositional(lines: string[], _delim: string, splitRow: (row: string) => string[]): ParsedTransaction[] {
+function parseCSVPositional(lines: string[], _delim: string, splitRow: (row: string) => string[], preferMDY = false): ParsedTransaction[] {
   // Last-resort: guess date is col 0, description col 1, amount col 2 or 3
   const transactions = [];
   for (let i = 1; i < lines.length; i++) {
     const cells = splitRow(lines[i]);
     if (cells.length < 3) continue;
-    const dateStr = normalizeDate(cells[0]);
+    const dateStr = normalizeDate(cells[0], preferMDY);
     if (!dateStr) continue;
     const note = cells[1]?.trim().slice(0, 120) || 'Transaction';
     const rawAmt = cells[2] || cells[3] || '';
@@ -147,30 +150,34 @@ function parseAmount(str: string): number {
 }
 
 // Normalizes many date formats to YYYY-MM-DD
-export function normalizeDate(raw: string): string | null {
+// preferMDY: when true, ambiguous dates like 01/02/2024 are parsed as MM/DD (US format)
+export function normalizeDate(raw: string, preferMDY = false): string | null {
   if (!raw) return null;
   const s = raw.trim().replace(/['"]/g, '');
 
   // Already ISO: 2024-01-15
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    const d = new Date(s.slice(0, 10));
-    return isValidDate(d) ? s.slice(0, 10) : null;
+    const iso = s.slice(0, 10);
+    const [y, m, d] = iso.split('-').map(Number);
+    return isValidYmd(y, m, d) ? iso : null;
   }
 
-  // DD/MM/YYYY or DD-MM-YYYY (most international banks)
-  const dmy = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
-  if (dmy) {
-    const [, d, m, y] = dmy;
-    const date = new Date(Number(y), Number(m) - 1, Number(d));
-    if (isValidDate(date)) return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-  }
+  // Slashed dates can be DD/MM/YYYY or MM/DD/YYYY.
+  const slash = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (slash) {
+    const a = Number(slash[1]);
+    const b = Number(slash[2]);
+    const y = Number(slash[3]);
 
-  // MM/DD/YYYY (US banks)
-  const mdy = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
-  if (mdy) {
-    const [, m, d, y] = mdy;
-    const date = new Date(Number(y), Number(m) - 1, Number(d));
-    if (isValidDate(date)) return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    // If one side is >12 we can disambiguate. If both <=12, use locale preference.
+    let day: number, month: number;
+    if (a > 12) { day = a; month = b; }
+    else if (b > 12) { day = b; month = a; }
+    else if (preferMDY) { month = a; day = b; } // MM/DD for US
+    else { day = a; month = b; } // DD/MM for rest of world
+    if (isValidYmd(y, month, day)) {
+      return `${String(y).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
   }
 
   // DD MMM YYYY or DD-MMM-YYYY (e.g. 15 Jan 2024)
@@ -190,11 +197,23 @@ export function normalizeDate(raw: string): string | null {
   if (dmyShort) {
     const [, d, m, y] = dmyShort;
     const fullYear = '20' + y;
-    const date = new Date(Number(fullYear), Number(m) - 1, Number(d));
-    if (isValidDate(date)) return `${fullYear}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    if (isValidYmd(Number(fullYear), Number(m), Number(d))) {
+      return `${fullYear}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
   }
 
   return null;
+}
+
+function isValidYmd(year: number, month: number, day: number): boolean {
+  if (year < 2000 || year > 2030) return false;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const candidate = new Date(year, month - 1, day);
+  return (
+    candidate.getFullYear() === year &&
+    candidate.getMonth() === month - 1 &&
+    candidate.getDate() === day
+  );
 }
 
 function isValidDate(d: Date): boolean {
@@ -293,6 +312,7 @@ export async function parseWithAI(text: string, hostCurrency: string, sourceFile
   }
 
   try {
+    const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 

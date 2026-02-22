@@ -1,16 +1,17 @@
 {
-  "appId": "com.spendwise.app",
+  "appId": "com.spendwise42.app",
   "appName": "SpendWise",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "iosScheme": "https"
   },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 2000,
       "launchAutoHide": true,
-      "backgroundColor": "#0a0a1a",
+      "backgroundColor": "#000000",
       "androidSplashResourceName": "splash",
       "androidScaleType": "CENTER_CROP",
       "showSpinner": false,
@@ -18,8 +19,8 @@
       "spinnerColor": "#8b5cf6"
     },
     "StatusBar": {
-      "style": "dark",
-      "backgroundColor": "#0a0a1a"
+      "style": "light",
+      "backgroundColor": "#000000"
     },
     "Keyboard": {
       "resize": "body",
@@ -31,10 +32,10 @@
     "contentInset": "automatic",
     "allowsLinkPreview": false,
     "scrollEnabled": true,
-    "backgroundColor": "#0a0a1a"
+    "backgroundColor": "#000000"
   },
   "android": {
-    "backgroundColor": "#0a0a1a",
+    "backgroundColor": "#000000",
     "allowMixedContent": false,
     "captureInput": true,
     "webContentsDebuggingEnabled": false

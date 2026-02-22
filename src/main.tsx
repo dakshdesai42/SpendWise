@@ -12,7 +12,8 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false,
+      staleTime: 30_000,
     },
   },
 });
@@ -28,22 +29,22 @@ createRoot(document.getElementById('root')!).render(
               position="top-center"
               toastOptions={{
                 style: {
-                  background: '#1a1a3e',
-                  color: '#f1f5f9',
+                  background: '#1C1C1E',
+                  color: '#FFFFFF',
                   border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '12px',
+                  borderRadius: '14px',
                   fontSize: '14px',
                 },
                 success: {
                   iconTheme: {
-                    primary: '#10b981',
-                    secondary: '#1a1a3e',
+                    primary: '#32D74B',
+                    secondary: '#1C1C1E',
                   },
                 },
                 error: {
                   iconTheme: {
-                    primary: '#ef4444',
-                    secondary: '#1a1a3e',
+                    primary: '#FF453A',
+                    secondary: '#1C1C1E',
                   },
                 },
               }}
