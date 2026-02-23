@@ -43,8 +43,10 @@ export function useToggleRecurringExpense() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ userId, id, isActive }: { userId: string; id: string; isActive: boolean }) => toggleRecurringExpense(userId, id, isActive),
-        onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['recurring', variables.userId] });
+        onSuccess: () => {
+            // Nuke upcoming bills cache so dashboard can't show stale data
+            queryClient.removeQueries({ queryKey: ['recurring', 'upcoming'] });
+            queryClient.invalidateQueries({ queryKey: ['recurring'] });
         },
     });
 }
@@ -53,8 +55,12 @@ export function useDeleteRecurringExpense() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ userId, id }: { userId: string; id: string }) => deleteRecurringExpense(userId, id),
-        onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['recurring', variables.userId] });
+        onSuccess: () => {
+            // Nuke upcoming bills cache so dashboard can't show stale data
+            queryClient.removeQueries({ queryKey: ['recurring', 'upcoming'] });
+            queryClient.invalidateQueries({ queryKey: ['recurring'] });
+            // Also invalidate expenses since future occurrences are deleted
+            queryClient.invalidateQueries({ queryKey: ['expenses'] });
         },
     });
 }

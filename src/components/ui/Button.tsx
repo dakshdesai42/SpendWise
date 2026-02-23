@@ -13,9 +13,9 @@ const variants = {
 };
 
 const sizes = {
-  sm: 'px-3 py-1.5 text-sm rounded-xl',
-  md: 'px-4 py-2.5 text-sm rounded-2xl',
-  lg: 'px-6 py-3 text-base rounded-2xl',
+  sm: 'px-3 py-2 text-sm rounded-xl min-h-11',
+  md: 'px-4 py-2.5 text-sm rounded-2xl min-h-11',
+  lg: 'px-6 py-3 text-base rounded-2xl min-h-12',
 };
 
 export default function Button({
@@ -49,6 +49,8 @@ export default function Button({
         className
       )}
       disabled={disabled || loading}
+      aria-disabled={disabled || loading}
+      aria-busy={loading}
       {...props}
     >
       {loading ? (

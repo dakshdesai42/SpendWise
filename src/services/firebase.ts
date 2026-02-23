@@ -12,7 +12,19 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
+function isConfiguredValue(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const v = value.trim();
+  if (!v) return false;
+  return !/^your[_-]/i.test(v);
+}
+
+export const isFirebaseConfigured = [
+  firebaseConfig.apiKey,
+  firebaseConfig.authDomain,
+  firebaseConfig.projectId,
+  firebaseConfig.appId,
+].every(isConfiguredValue);
 
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;

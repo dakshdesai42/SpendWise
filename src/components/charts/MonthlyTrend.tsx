@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import { formatCurrency } from '../../utils/formatters';
 import { useCurrency } from '../../context/CurrencyContext';
+import { CURRENCY_MAP } from '../../utils/constants';
 import { TrendDataPoint } from '../../types/models';
 
 function CustomTooltip({ active, payload, label, currency }: { active?: boolean; payload?: Array<{ value: number }>; label?: string; currency: string }) {
@@ -25,6 +26,7 @@ function CustomTooltip({ active, payload, label, currency }: { active?: boolean;
 
 export default function MonthlyTrend({ data }: { data: TrendDataPoint[] }) {
   const { hostCurrency } = useCurrency();
+  const currencySymbol = CURRENCY_MAP[hostCurrency]?.symbol || hostCurrency;
 
   if (!data || data.length === 0) {
     return (
@@ -54,7 +56,7 @@ export default function MonthlyTrend({ data }: { data: TrendDataPoint[] }) {
           tick={{ fill: '#64748b', fontSize: 12 }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v) => `$${v}`}
+          tickFormatter={(v) => `${currencySymbol}${v}`}
         />
         <Tooltip content={<CustomTooltip currency={hostCurrency} />} />
         <Area

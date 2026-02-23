@@ -6,12 +6,12 @@ import {
     getExpensesInRange
 } from '../services/expenses';
 import { getBudget } from '../services/budgets';
-import { getRecurringExpenses, getUpcomingRecurringBills } from '../services/recurring';
+import { getRecurringExpenses, getUpcomingRecurringBills, getUpcomingRecurringBillsForUser } from '../services/recurring';
 import { getGoals } from '../services/goals';
 import { format, subMonths, startOfWeek, endOfWeek, subWeeks, endOfDay } from 'date-fns';
 import { CATEGORY_MAP } from '../utils/constants';
 import { DEMO_EXPENSES, DEMO_SUMMARY, DEMO_BUDGET, DEMO_TREND, DEMO_RECURRING, DEMO_GOALS } from '../utils/demoData';
-import { Expense, WeeklyReview } from '../types/models';
+import { Expense, UpcomingBill, WeeklyReview } from '../types/models';
 import { parseMonthKey } from '../utils/date';
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -92,6 +92,21 @@ export function useDashboardData(userId: string | undefined, currentMonth: strin
         enabled: !!userId && !demoMode,
     });
 
+    // Upcoming bills — self-contained query that fetches its own rules fresh
+    // from Firestore every time. Uses staleTime: 0 and refetchOnMount: 'always'
+    // to override global defaults (staleTime: 30s) so deleted recurring rules
+    // are never shown from stale cache.
+    const upcomingBillsQuery = useQuery<UpcomingBill[]>({
+        queryKey: ['recurring', 'upcoming', userId],
+        queryFn: async () => {
+            const rules = await getRecurringExpenses(userId!);
+            return getUpcomingRecurringBillsForUser(userId!, rules, new Date(), 30);
+        },
+        enabled: !!userId && !demoMode,
+        staleTime: 0,
+        refetchOnMount: 'always',
+    });
+
     // Trend data query (Last 6 months)
     const trendMonths = Array.from({ length: 6 }, (_, i) => format(subMonths(new Date(), 5 - i), 'yyyy-MM'));
     const trendQuery = useQuery({
@@ -124,7 +139,7 @@ export function useDashboardData(userId: string | undefined, currentMonth: strin
     // Derived data
     const upcomingBills = demoMode
         ? getUpcomingRecurringBills(DEMO_RECURRING, new Date(), 30)
-        : recurringQuery.data ? getUpcomingRecurringBills(recurringQuery.data, new Date(), 30) : [];
+        : (upcomingBillsQuery.data ?? []);
 
     const trendData = demoMode
         ? DEMO_TREND
@@ -175,11 +190,14 @@ export function useDashboardData(userId: string | undefined, currentMonth: strin
             budgetQuery.refetch(),
             goalsQuery.refetch(),
             recurringQuery.refetch(),
+            upcomingBillsQuery.refetch(),
             trendQuery.refetch(),
             thisWeekQuery.refetch(),
             prevWeekQuery.refetch(),
         ]);
     }
+
+    const upcomingBillsLoading = !demoMode && upcomingBillsQuery.isLoading;
 
     return {
         recentExpenses: demoMode ? DEMO_EXPENSES.slice(0, 5) : (recentQuery.data || []),
@@ -187,6 +205,7 @@ export function useDashboardData(userId: string | undefined, currentMonth: strin
         budget: demoMode ? DEMO_BUDGET : (budgetQuery.data || null),
         goals: demoMode ? DEMO_GOALS : (goalsQuery.data || []),
         upcomingBills,
+        upcomingBillsLoading,
         weeklyReview,
         trendData,
         isLoading,

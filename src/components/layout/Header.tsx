@@ -15,7 +15,7 @@ export default function Header({ onAddExpense }: { onAddExpense?: () => void }) 
   };
 
   return (
-    <header className="flex items-start sm:items-center justify-between gap-4 py-3 md:py-4 px-1 sm:px-0">
+    <header className="app-page-header flex items-start sm:items-center justify-between gap-4">
       <div>
         <motion.h2
           initial={{ opacity: 0, x: -10 }}

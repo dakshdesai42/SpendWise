@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { getDb } from '../services/firebase';
 import { signOut } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 import { useCurrency } from '../context/CurrencyContext';
@@ -22,12 +22,17 @@ const currencyOptions = POPULAR_CURRENCIES.map((c) => ({
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { user, profile, refreshProfile, demoMode } = useAuth();
-  const { hostCurrency, homeCurrency, getRate } = useCurrency();
+  const { getRate } = useCurrency();
   const [homeCurr, setHomeCurr] = useState(profile?.homeCurrency || '');
   const [hostCurr, setHostCurr] = useState(profile?.hostCurrency || '');
   const [saving, setSaving] = useState(false);
 
-  const rate = getRate(hostCurrency, homeCurrency);
+  useEffect(() => {
+    setHomeCurr(profile?.homeCurrency || '');
+    setHostCurr(profile?.hostCurrency || '');
+  }, [profile?.homeCurrency, profile?.hostCurrency]);
+
+  const rate = homeCurr && hostCurr ? getRate(hostCurr, homeCurr) : 0;
   const userAchievements = profile?.achievements || [];
 
   async function handleSaveCurrencies() {
@@ -41,7 +46,7 @@ export default function SettingsPage() {
     }
     setSaving(true);
     try {
-      await updateDoc(doc(db as any, 'users', user!.uid), {
+      await updateDoc(doc(getDb(), 'users', user!.uid), {
         homeCurrency: homeCurr,
         hostCurrency: hostCurr,
         updatedAt: serverTimestamp(),
@@ -70,7 +75,7 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <div className="py-3 md:py-4 px-1 sm:px-0">
+      <div className="app-page-header">
         <h2 className="text-xl lg:text-2xl font-bold tracking-tight text-text-primary">Settings</h2>
         <p className="text-sm text-text-secondary mt-1">Manage your preferences</p>
       </div>

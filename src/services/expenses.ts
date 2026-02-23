@@ -24,6 +24,14 @@ function expensesRef(userId: string) {
   return collection(getDb(), 'users', userId, 'expenses');
 }
 
+function recurringSkipsRef(userId: string) {
+  return collection(getDb(), 'users', userId, 'recurringSkips');
+}
+
+function recurringSkipDocRef(userId: string, recurringOccurrenceKey: string) {
+  return doc(getDb(), 'users', userId, 'recurringSkips', recurringOccurrenceKey);
+}
+
 function normalizeStoredDate(value: unknown): Date {
   if (!value) {
     console.warn('normalizeStoredDate: missing date value, returning epoch');
@@ -143,15 +151,51 @@ export async function updateExpense(userId: string, expenseId: string, updates: 
 
 export async function deleteExpense(userId: string, expenseId: string, month?: string): Promise<void> {
   const expRef = doc(getDb(), 'users', userId, 'expenses', expenseId);
+  const snap = await getDoc(expRef);
   let monthToRefresh = month;
-  if (!monthToRefresh) {
-    const snap = await getDoc(expRef);
-    if (snap.exists()) {
-      monthToRefresh = snap.data()?.month as string | undefined;
+
+  type StoredExpenseLike = {
+    month?: string;
+    date?: unknown;
+    isRecurring?: boolean;
+    recurringId?: string | null;
+    recurringOccurrenceKey?: string | null;
+  };
+
+  let recurringSkip: { recurringId: string; recurringOccurrenceKey: string; month: string } | null = null;
+  if (snap.exists()) {
+    const raw = snap.data() as StoredExpenseLike;
+    const expenseDate = normalizeStoredDate(raw.date);
+    const resolvedMonth = raw.month || formatMonthKey(expenseDate);
+    if (!monthToRefresh) {
+      monthToRefresh = resolvedMonth;
+    }
+
+    const recurringId = typeof raw.recurringId === 'string' && raw.recurringId.trim().length > 0
+      ? raw.recurringId
+      : null;
+    const isRecurring = raw.isRecurring === true || !!recurringId;
+    if (isRecurring && recurringId) {
+      const recurringOccurrenceKey = typeof raw.recurringOccurrenceKey === 'string' && raw.recurringOccurrenceKey.trim().length > 0
+        ? raw.recurringOccurrenceKey
+        : `${recurringId}:${formatDayKey(expenseDate)}`;
+      recurringSkip = {
+        recurringId,
+        recurringOccurrenceKey,
+        month: resolvedMonth,
+      };
     }
   }
 
   await deleteDoc(expRef);
+  if (recurringSkip) {
+    await markRecurringOccurrenceSkipped(
+      userId,
+      recurringSkip.recurringId,
+      recurringSkip.recurringOccurrenceKey,
+      recurringSkip.month
+    );
+  }
   if (monthToRefresh) {
     await updateMonthlySummary(userId, monthToRefresh);
   }
@@ -169,8 +213,8 @@ export async function getExpensesByMonth(userId: string, month: string): Promise
   );
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({
-    id: d.id,
     ...d.data(),
+    id: d.id,
     date: d.data().date?.toDate?.() || parseLocalDate(d.data().date),
   }) as Expense);
 }
@@ -200,8 +244,8 @@ export async function getRecentExpenses(userId: string, count = 5): Promise<Expe
   );
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({
-    id: d.id,
     ...d.data(),
+    id: d.id,
     date: d.data().date?.toDate?.() || parseLocalDate(d.data().date),
   }) as Expense);
 }
@@ -217,8 +261,8 @@ export async function getExpensesInRange(userId: string, startDate: string | Dat
   );
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({
-    id: d.id,
     ...d.data(),
+    id: d.id,
     date: d.data().date?.toDate?.() || parseLocalDate(d.data().date),
   }) as Expense);
 }
@@ -329,4 +373,46 @@ export async function deleteFutureRecurringOccurrences(
   }
 
   return docsToDelete.length;
+}
+
+export async function markRecurringOccurrenceSkipped(
+  userId: string,
+  recurringId: string,
+  recurringOccurrenceKey: string,
+  month: string
+): Promise<void> {
+  if (!recurringId || !recurringOccurrenceKey || !month) return;
+  await setDoc(
+    recurringSkipDocRef(userId, recurringOccurrenceKey),
+    {
+      recurringId,
+      recurringOccurrenceKey,
+      month,
+      skippedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+export async function getRecurringSkipKeysForMonth(userId: string, month: string): Promise<Set<string>> {
+  const q = query(recurringSkipsRef(userId), where('month', '==', month));
+  const snapshot = await getDocs(q);
+  return new Set(
+    snapshot.docs
+      .map((d) => {
+        const data = d.data() as { recurringOccurrenceKey?: string };
+        return data.recurringOccurrenceKey || d.id;
+      })
+      .filter((key): key is string => !!key)
+  );
+}
+
+export async function deleteRecurringSkipsByRecurringId(userId: string, recurringId: string): Promise<number> {
+  if (!recurringId) return 0;
+  const q = query(recurringSkipsRef(userId), where('recurringId', '==', recurringId));
+  const snapshot = await getDocs(q);
+  for (const skipDoc of snapshot.docs) {
+    await deleteDoc(skipDoc.ref);
+  }
+  return snapshot.docs.length;
 }

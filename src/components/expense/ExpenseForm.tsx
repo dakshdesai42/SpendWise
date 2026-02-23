@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
+import { HiXMark } from 'react-icons/hi2';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
@@ -10,6 +11,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { Expense } from '../../types/models';
 import clsx from 'clsx';
 import { parseLocalDate } from '../../utils/date';
+import { hapticLight, hapticSuccess } from '../../utils/haptics';
 
 const RECENT_KEY = 'sw_recent_categories';
 
@@ -90,6 +92,7 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
   const numericAmount = parseFloat(amount) || 0;
   const homeAmount = convertToHome(numericAmount);
   const rate = getRate(hostCurrency, homeCurrency);
+  const amountWidthCh = Math.min(Math.max((amount || '0.00').length + 1, 5), 10);
 
   function handleClose() {
     onClose();
@@ -111,6 +114,7 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
     setLoading(true);
     try {
       recordCategoryUsed(category);
+      hapticSuccess();
       await onSubmit({
         amount: numericAmount,
         amountHome: homeAmount,
@@ -135,40 +139,65 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={isEditing ? 'Edit Expense' : 'Add Expense'}>
+    <Modal isOpen={isOpen} onClose={handleClose}>
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Top bar */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight text-text-primary">
+            {isEditing ? 'Edit Expense' : 'New Expense'}
+          </h2>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="h-9 w-9 rounded-full border border-white/[0.08] bg-white/[0.06] text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors flex items-center justify-center"
+            aria-label="Close add expense form"
+          >
+            <HiXMark className="w-5 h-5" />
+          </button>
+        </div>
 
-        {/* Amount */}
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-text-secondary">Amount</label>
-          <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-text-tertiary select-none pointer-events-none">
-              {currencySymbol}
-            </span>
-            <input
-              ref={amountRef}
-              type="number"
-              inputMode="decimal"
-              step="0.01"
-              min="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] pl-12 pr-4 py-4 text-2xl font-bold text-text-primary placeholder-text-tertiary focus:border-accent-primary/50 focus:ring-2 focus:ring-accent-primary/20 transition-all"
-            />
+        {/* Hero amount */}
+        <div className="relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-white/[0.01] px-5 py-6 md:py-8 overflow-hidden">
+          {/* Subtle glow accent behind the amount */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-accent-primary/[0.06] rounded-full blur-3xl" />
           </div>
-          <AnimatePresence>
-            {numericAmount > 0 && (
-              <motion.p
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="text-sm text-text-tertiary pl-1"
-              >
-                ~{formatCurrency(homeAmount, homeCurrency)}
-              </motion.p>
-            )}
-          </AnimatePresence>
+
+          <div className="relative text-center space-y-3">
+            <p className="text-xs font-medium uppercase tracking-widest text-text-tertiary">Amount</p>
+            <div className="flex items-baseline justify-center gap-1">
+              <span className="text-4xl md:text-5xl font-extralight leading-none text-text-secondary select-none">
+                {currencySymbol}
+              </span>
+              <input
+                ref={amountRef}
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                aria-label="Amount"
+                placeholder="0.00"
+                style={{ width: `${amountWidthCh}ch` }}
+                className="max-w-[60vw] bg-transparent border-none p-0 text-left text-5xl md:text-6xl font-light leading-none tracking-tight text-text-primary placeholder:text-text-tertiary/50 focus:outline-none [appearance:textfield]"
+              />
+            </div>
+            <AnimatePresence>
+              {numericAmount > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  className="flex justify-center"
+                >
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border border-white/[0.08] bg-white/[0.04] text-text-secondary">
+                    ≈ {formatCurrency(homeAmount, homeCurrency)}
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Category — recency sorted */}
@@ -180,7 +209,7 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
                 key={cat.id}
                 type="button"
                 whileTap={{ scale: 0.92 }}
-                onClick={() => setCategory(cat.id)}
+                onClick={() => { setCategory(cat.id); hapticLight(); }}
                 className={clsx(
                   'flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all duration-150',
                   category === cat.id
@@ -223,7 +252,7 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
           <div className="space-y-3">
             <button
               type="button"
-              onClick={() => setIsRecurring((v) => !v)}
+              onClick={() => { setIsRecurring((v) => !v); hapticLight(); }}
               className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-white/[0.08] bg-white/[0.03] active:bg-white/[0.06] transition-colors"
             >
               <div className="flex items-center gap-3">

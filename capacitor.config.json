@@ -2,14 +2,13 @@
   "appId": "com.spendwise42.app",
   "appName": "SpendWise",
   "webDir": "dist",
-  "bundledWebRuntime": false,
   "server": {
     "androidScheme": "https",
     "iosScheme": "https"
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 2000,
+      "launchShowDuration": 900,
       "launchAutoHide": true,
       "backgroundColor": "#000000",
       "androidSplashResourceName": "splash",
@@ -29,9 +28,9 @@
     }
   },
   "ios": {
-    "contentInset": "automatic",
+    "contentInset": "never",
     "allowsLinkPreview": false,
-    "scrollEnabled": true,
+    "scrollEnabled": false,
     "backgroundColor": "#000000"
   },
   "android": {

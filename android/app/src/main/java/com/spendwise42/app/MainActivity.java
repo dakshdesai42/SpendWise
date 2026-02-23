@@ -1,4 +1,4 @@
-package com.spendwise.app;
+package com.spendwise42.app;
 
 import com.getcapacitor.BridgeActivity;
 

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useFAB } from '../context/FABContext';
 import {
@@ -8,7 +8,7 @@ import {
   format,
   startOfMonth,
 } from 'date-fns';
-import { HiArrowTrendingDown, HiArrowTrendingUp, HiHome as HiHomeIcon, HiFire, HiPlus, HiShare } from 'react-icons/hi2';
+import { HiArrowTrendingDown, HiArrowTrendingUp, HiHome as HiHomeIcon, HiFire } from 'react-icons/hi2';
 import { useAuth } from '../context/AuthContext';
 import { useCurrency } from '../context/CurrencyContext';
 
@@ -18,21 +18,23 @@ import { useDashboardData } from '../hooks/useDashboardData';
 import { useAddExpense } from '../hooks/useExpenses';
 import { useAddGoal, useApplyUnderspendToGoals } from '../hooks/useGoals';
 import { useAutoPostRecurringForMonth } from '../hooks/useRecurring';
+import { reactivateAllRecurringRules } from '../services/recurring';
 import { CATEGORY_MAP } from '../utils/constants';
 import Header from '../components/layout/Header';
 import GlassCard from '../components/ui/GlassCard';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import ExpenseForm from '../components/expense/ExpenseForm';
-import ExpenseList from '../components/expense/ExpenseList';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import toast from 'react-hot-toast';
 import { parseLocalDate } from '../utils/date';
 
+
 const SpendingDonut = lazy(() => import('../components/charts/SpendingDonut'));
 const MonthlyTrend = lazy(() => import('../components/charts/MonthlyTrend'));
 const BudgetOverview = lazy(() => import('../components/budget/BudgetOverview'));
+const ExpenseForm = lazy(() => import('../components/expense/ExpenseForm'));
+const DashboardDeferredSections = lazy(() => import('../components/dashboard/DashboardDeferredSections'));
 
 function InsightLoadingState() {
   return (
@@ -48,6 +50,7 @@ export default function DashboardPage() {
   const { setFABAction } = useFAB();
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [activeInsight, setActiveInsight] = useState('trend');
+
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [goalTitle, setGoalTitle] = useState('');
   const [goalAmount, setGoalAmount] = useState('');
@@ -55,11 +58,13 @@ export default function DashboardPage() {
   const [savingGoal, setSavingGoal] = useState(false);
   const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const [retryingData, setRetryingData] = useState(false);
+  const [showDeferredSections, setShowDeferredSections] = useState(false);
   const currentMonth = getCurrentMonth();
 
   const {
     recentExpenses, summary, budget, goals, upcomingBills,
-    weeklyReview, trendData, isLoading: loading, hasError, refetchAll
+    upcomingBillsLoading, weeklyReview, trendData,
+    isLoading: loading, hasError, refetchAll
   } = useDashboardData(user?.uid, currentMonth, demoMode);
 
   const { mutateAsync: addExpenseMutate } = useAddExpense();
@@ -69,9 +74,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user?.uid && !demoMode) {
-      autoPostRecurring({ userId: user.uid, month: currentMonth }).catch(() => {
-        // Non-blocking background sync.
-      });
+      (async () => {
+        // One-time data repair: re-enable recurring rules that may have been
+        // incorrectly deactivated. Guarded by localStorage so it only runs once.
+        const migrationKey = `sw_reactivate_rules_${user.uid}`;
+        if (!localStorage.getItem(migrationKey)) {
+          try {
+            await reactivateAllRecurringRules(user.uid);
+          } catch { /* non-blocking */ }
+          localStorage.setItem(migrationKey, '1');
+        }
+        autoPostRecurring({ userId: user.uid, month: currentMonth }).catch(() => {
+          // Non-blocking background sync.
+        });
+      })();
     }
   }, [user?.uid, currentMonth, demoMode, autoPostRecurring]);
 
@@ -83,6 +99,18 @@ export default function DashboardPage() {
     const timer = setTimeout(() => setLoadingTimedOut(true), 12000);
     return () => clearTimeout(timer);
   }, [loading]);
+
+  useEffect(() => {
+    setShowDeferredSections(false);
+  }, [user?.uid, currentMonth, demoMode]);
+
+  useEffect(() => {
+    if (loading) return;
+    const timer = window.setTimeout(() => {
+      setShowDeferredSections(true);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [loading, user?.uid, currentMonth, demoMode]);
 
   // Register this page's add-expense action with the global FAB
   useEffect(() => {
@@ -168,14 +196,12 @@ export default function DashboardPage() {
   }
 
   async function handleShareMonthlySummary() {
-    const topCategoryEntry: any = Object.entries(summary?.categoryTotals || {}).sort((a: any, b: any) => b[1] - a[1])[0];
-    const topCategory = CATEGORY_MAP[topCategoryEntry?.[0] || 'other'];
     const report = `SpendWise Monthly Summary (${currentMonth})
 Spent: ${formatCurrency(totalSpent, hostCurrency)}
 Transactions: ${summary?.transactionCount || 0}
-Top category: ${topCategory.label} (${formatCurrency((topCategoryEntry as any)?.[1] || 0, hostCurrency)})
+Top category: ${topCategory.label}
 Budget: ${budget ? `${Math.round(budgetPercent)}% used of ${formatCurrency(budget.overall, hostCurrency)}` : 'No budget set'}
-Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b.amount, 0), hostCurrency)}`;
+Upcoming 30 days: ${formatCurrency(upcoming30Total, hostCurrency)}`;
 
     try {
       if (navigator.share) {
@@ -190,15 +216,13 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
   }
 
   function handleDownloadMonthlySummary() {
-    const topCategoryEntry: any = Object.entries(summary?.categoryTotals || {}).sort((a: any, b: any) => b[1] - a[1])[0];
-    const topCategory = CATEGORY_MAP[topCategoryEntry?.[0] || 'other'];
     const content = `SpendWise Monthly Summary (${currentMonth})
 
 - Total spent: ${formatCurrency(totalSpent, hostCurrency)}
 - Transactions: ${summary?.transactionCount || 0}
-- Top category: ${topCategory.label} (${formatCurrency(topCategoryEntry?.[1] || 0, hostCurrency)})
+- Top category: ${topCategory.label}
 - Budget status: ${budget ? `${Math.round(budgetPercent)}% used` : 'No budget set'}
-- Upcoming recurring (30 days): ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b.amount, 0), hostCurrency)}
+- Upcoming recurring (30 days): ${formatCurrency(upcoming30Total, hostCurrency)}
 `;
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -211,20 +235,50 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
 
   const totalSpent = summary?.totalSpent || 0;
   const totalSpentHome = summary?.totalSpentHome || 0;
-  const budgetRemaining = budget ? budget.overall - totalSpent : null;
-  const budgetPercent = budget && budget.overall > 0 ? (totalSpent / budget.overall) * 100 : 0;
   const streak = profile?.currentStreak || 0;
-  const monthStart = startOfMonth(new Date());
-  const monthEnd = endOfMonth(new Date());
-  const elapsedDays = Math.max(differenceInCalendarDays(new Date(), monthStart) + 1, 1);
-  const totalDays = differenceInCalendarDays(monthEnd, monthStart) + 1;
-  const elapsedPct = (elapsedDays / totalDays) * 100;
-  const paceDiff = budget ? budgetPercent - elapsedPct : 0;
-  const burnRateLevel = paceDiff > 12 ? 'high' : paceDiff > 4 ? 'medium' : 'normal';
-  const upcoming7 = upcomingBills.filter((b: any) => b.dueDate <= addDays(new Date(), 7));
-  const upcoming30Total = upcomingBills.reduce((sum, bill: any) => sum + bill.amount, 0);
-  const topCategoryEntry = Object.entries(summary?.categoryTotals || {}).sort((a: any, b: any) => b[1] - a[1])[0];
-  const topCategory = CATEGORY_MAP[topCategoryEntry?.[0] || 'other'];
+
+  const {
+    budgetRemaining,
+    budgetPercent,
+    burnRateLevel,
+    elapsedPct,
+    upcoming7,
+    upcoming30Total,
+    topCategory,
+  } = useMemo(() => {
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+    const elapsedDays = Math.max(differenceInCalendarDays(now, monthStart) + 1, 1);
+    const totalDays = differenceInCalendarDays(monthEnd, monthStart) + 1;
+    const elapsedPercent = (elapsedDays / totalDays) * 100;
+
+    const budgetPct = budget && budget.overall > 0 ? (totalSpent / budget.overall) * 100 : 0;
+    const paceDiff = budget ? budgetPct - elapsedPercent : 0;
+    const burn = paceDiff > 12 ? 'high' : paceDiff > 4 ? 'medium' : 'normal';
+
+    // Safely compute upcoming bills derived values
+    const safeBills = Array.isArray(upcomingBills) ? upcomingBills : [];
+    const weekAhead = addDays(now, 7);
+    const upcomingWeek = safeBills.filter((bill) => {
+      const due = bill.dueDate instanceof Date ? bill.dueDate : new Date(bill.dueDate);
+      return !isNaN(due.getTime()) && due <= weekAhead;
+    });
+    const next30Total = safeBills.reduce((sum, bill) => sum + (bill.amount || 0), 0);
+
+    const categoryEntry = Object.entries(summary?.categoryTotals || {}).sort(([, a], [, b]) => b - a)[0];
+    const category = CATEGORY_MAP[categoryEntry?.[0] || 'other'];
+
+    return {
+      budgetRemaining: budget ? budget.overall - totalSpent : null,
+      budgetPercent: budgetPct,
+      burnRateLevel: burn,
+      elapsedPct: elapsedPercent,
+      upcoming7: upcomingWeek,
+      upcoming30Total: next30Total,
+      topCategory: category,
+    };
+  }, [budget, totalSpent, upcomingBills, summary?.categoryTotals]);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const loggedToday = recentExpenses.some(
@@ -244,14 +298,15 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
   }
 
   return (
-    <div className="pt-1 md:pt-2">
+    <div>
+
       <Header onAddExpense={() => setShowExpenseForm(true)} />
 
       <motion.div
         variants={containerVariants}
         initial="initial"
         animate="animate"
-        className="space-y-12 md:space-y-14 mt-4 md:mt-5"
+        className="app-page-content space-y-12 md:space-y-14"
       >
         {(hasError || loadingTimedOut) && !demoMode && (
           <motion.div variants={itemVariants} className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
@@ -419,138 +474,57 @@ Upcoming 30 days: ${formatCurrency(upcomingBills.reduce((sum, b: any) => sum + b
           </GlassCard>
         </motion.div>
 
-        {/* Upcoming Bills */}
-        <motion.div variants={itemVariants}>
-          <GlassCard className="p-7 md:p-9">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-semibold text-text-primary">Upcoming Bills</h3>
-              <span className="text-xs text-text-tertiary">
-                Next 30 days: {formatCurrency(upcoming30Total, hostCurrency)}
-              </span>
-            </div>
-            {upcomingBills.length === 0 ? (
-              <p className="text-sm text-text-tertiary">No upcoming recurring bills.</p>
-            ) : (
-              <div className="space-y-3">
-                {upcomingBills.slice(0, 6).map((bill: any, idx) => {
-                  const cat = CATEGORY_MAP[bill.category as keyof typeof CATEGORY_MAP] || CATEGORY_MAP.other;
-                  return (
-                    <div key={`${bill.recurringId}-${idx}`} className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
-                      <div className="min-w-0">
-                        <p className="text-sm text-text-primary truncate">{bill.note || cat.label}</p>
-                        <p className="text-xs text-text-tertiary">
-                          {format(bill.dueDate, 'EEE, MMM d')} • {bill.frequency}
-                        </p>
-                      </div>
-                      <span className="text-sm font-semibold text-text-primary">{formatCurrency(bill.amount, hostCurrency)}</span>
-                    </div>
-                  );
-                })}
-                {upcoming7.length > 0 && (
-                  <p className="text-xs text-warning">
-                    {upcoming7.length} bill{upcoming7.length > 1 ? 's' : ''} due in the next 7 days.
-                  </p>
-                )}
-              </div>
-            )}
-          </GlassCard>
-        </motion.div>
-
-        {/* Weekly Review */}
-        <motion.div variants={itemVariants}>
-          <GlassCard className="p-7 md:p-8">
-            <h3 className="text-sm font-semibold text-text-primary mb-3">Weekly Review</h3>
-            {weeklyReview ? (
-              <div className="space-y-2">
-                <p className="text-sm text-text-secondary">
-                  {weeklyReview.count} expense{weeklyReview.count !== 1 ? 's' : ''} this week totaling {formatCurrency(weeklyReview.total, hostCurrency)}.
-                </p>
-                <p className="text-xs text-text-tertiary">
-                  Top category: {weeklyReview.topCategory?.label || 'Other'}
-                  {weeklyReview.biggest ? ` • Biggest: ${weeklyReview.biggest.note || 'Expense'} (${formatCurrency(weeklyReview.biggest.amount, hostCurrency)})` : ''}
-                </p>
-                <p className="text-xs text-accent-secondary">{weeklyReview.action}</p>
-              </div>
-            ) : (
-              <p className="text-sm text-text-tertiary">Not enough data for weekly review yet.</p>
-            )}
-          </GlassCard>
-        </motion.div>
-
-        {/* Goals */}
-
-        <motion.div variants={itemVariants}>
-          <GlassCard className="p-7 md:p-9">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-sm font-semibold text-text-primary">Savings Goals</h3>
-              <div className="flex gap-2">
-                <Button size="sm" variant="secondary" onClick={handleApplyUnderspend}>Apply Underspend</Button>
-                <Button size="sm" onClick={() => setShowGoalModal(true)} icon={<HiPlus className="w-4 h-4" />}>Add Goal</Button>
-              </div>
-            </div>
-            {goals.length === 0 ? (
-              <p className="text-sm text-text-tertiary">No goals yet. Create your first goal.</p>
-            ) : (
-              <div className="space-y-4">
-                {goals.map((goal: any) => {
-                  const progress = goal.targetAmount > 0 ? Math.min((goal.currentSaved / goal.targetAmount) * 100, 100) : 0;
-                  return (
-                    <div key={goal.id} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-text-primary">{goal.title}</p>
-                          <p className="text-xs text-text-tertiary">
-                            {formatCurrency(goal.currentSaved || 0, hostCurrency)} / {formatCurrency(goal.targetAmount || 0, hostCurrency)}
-                            {goal.targetDate ? ` • target ${format(parseLocalDate(goal.targetDate), 'MMM d, yyyy')}` : ''}
-                          </p>
-                        </div>
-                        <span className="text-xs text-text-secondary">{Math.round(progress)}%</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-white/[0.08] overflow-hidden">
-                        <div className="h-full rounded-full bg-accent-primary" style={{ width: `${progress}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </GlassCard>
-        </motion.div>
-
-        {/* Monthly Share Card */}
-        <motion.div variants={itemVariants}>
-          <GlassCard className="p-7 md:p-8">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-text-primary">Monthly Summary</h3>
-              <span className="text-xs text-text-tertiary">{currentMonth}</span>
-            </div>
-            <p className="text-sm text-text-secondary mb-4">
-              You spent {formatCurrency(totalSpent, hostCurrency)} across {summary?.transactionCount || 0} transactions.
-              Top category was {topCategory.label}.
-            </p>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleShareMonthlySummary} icon={<HiShare className="w-4 h-4" />}>Share</Button>
-              <Button size="sm" variant="secondary" onClick={handleDownloadMonthlySummary}>Download</Button>
-            </div>
-          </GlassCard>
-        </motion.div>
-
-        {/* Recent Expenses */}
-        <motion.div variants={itemVariants}>
-          <GlassCard className="p-7 md:p-9">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-semibold text-text-primary">Recent Expenses</h3>
-            </div>
-            <ExpenseList expenses={recentExpenses} emptyMessage="No expenses yet - add your first one." />
-          </GlassCard>
-        </motion.div>
+        <Suspense
+          fallback={(
+            <motion.div variants={itemVariants}>
+              <GlassCard className="p-7 md:p-8">
+                <div className="h-28 flex items-center justify-center">
+                  <LoadingSpinner size="md" />
+                </div>
+              </GlassCard>
+            </motion.div>
+          )}
+        >
+          {showDeferredSections ? (
+            <DashboardDeferredSections
+              hostCurrency={hostCurrency}
+              currentMonth={currentMonth}
+              summary={summary}
+              upcoming30Total={upcoming30Total}
+              upcomingBills={upcomingBills}
+              upcomingBillsLoading={upcomingBillsLoading}
+              upcoming7={upcoming7}
+              weeklyReview={weeklyReview}
+              goals={goals}
+              topCategoryLabel={topCategory.label}
+              totalSpent={totalSpent}
+              recentExpenses={recentExpenses}
+              onApplyUnderspend={handleApplyUnderspend}
+              onAddGoal={() => setShowGoalModal(true)}
+              onShareMonthlySummary={handleShareMonthlySummary}
+              onDownloadMonthlySummary={handleDownloadMonthlySummary}
+            />
+          ) : (
+            <motion.div variants={itemVariants}>
+              <GlassCard className="p-7 md:p-8">
+                <div className="h-28 flex items-center justify-center">
+                  <LoadingSpinner size="md" />
+                </div>
+              </GlassCard>
+            </motion.div>
+          )}
+        </Suspense>
       </motion.div>
 
-      <ExpenseForm
-        isOpen={showExpenseForm}
-        onClose={() => setShowExpenseForm(false)}
-        onSubmit={handleAddExpense}
-      />
+      <Suspense fallback={null}>
+        {showExpenseForm && (
+          <ExpenseForm
+            isOpen={showExpenseForm}
+            onClose={() => setShowExpenseForm(false)}
+            onSubmit={handleAddExpense}
+          />
+        )}
+      </Suspense>
 
       <Modal isOpen={showGoalModal} onClose={() => setShowGoalModal(false)} title="Create Savings Goal">
         <form onSubmit={handleCreateGoal} className="space-y-4">

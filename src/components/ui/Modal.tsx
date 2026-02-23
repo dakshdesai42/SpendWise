@@ -1,5 +1,5 @@
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
-import { useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence, useMotionValue, useTransform, useDragControls } from 'framer-motion';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { HiXMark } from 'react-icons/hi2';
 
 const sizeClasses = {
@@ -12,59 +12,119 @@ const sizeClasses = {
 
 export default function Modal({ isOpen, onClose, title, children, size = 'md' }: { isOpen: boolean; onClose: () => void; title?: string; children: React.ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'; }) {
   const dragY = useMotionValue(0);
+  const dragControls = useDragControls();
   const opacity = useTransform(dragY, [0, 260], [1, 0]);
   const contentRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
-  const dragStartedFromHandle = useRef(false);
+  const focusScrollTimerRef = useRef<number | null>(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  const postNativeModalVisibility = useCallback((open: boolean) => {
+    const webkitBridge = (
+      window as typeof window & {
+        webkit?: {
+          messageHandlers?: Record<string, { postMessage: (payload: unknown) => void }>;
+        };
+      }
+    ).webkit;
+    webkitBridge?.messageHandlers?.spendwiseModal?.postMessage(open);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      document.documentElement.classList.add('modal-open');
     } else {
       document.body.style.overflow = '';
+      document.documentElement.classList.remove('modal-open');
     }
     return () => {
       document.body.style.overflow = '';
+      document.documentElement.classList.remove('modal-open');
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    postNativeModalVisibility(isOpen);
+  }, [isOpen, postNativeModalVisibility]);
+
+  useEffect(() => {
+    return () => {
+      postNativeModalVisibility(false);
+    };
+  }, [postNativeModalVisibility]);
 
   // Reset drag position when reopened
   useEffect(() => {
     if (isOpen) dragY.set(0);
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setKeyboardInset(0);
+      return;
+    }
+
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const updateInset = () => {
+      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      setKeyboardInset(Math.round(inset));
+    };
+
+    updateInset();
+    viewport.addEventListener('resize', updateInset);
+    viewport.addEventListener('scroll', updateInset);
+    window.addEventListener('orientationchange', updateInset);
+
+    return () => {
+      viewport.removeEventListener('resize', updateInset);
+      viewport.removeEventListener('scroll', updateInset);
+      window.removeEventListener('orientationchange', updateInset);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (focusScrollTimerRef.current) {
+        window.clearTimeout(focusScrollTimerRef.current);
+      }
+    };
+  }, []);
+
   function handleDragEnd(_: MouseEvent | TouchEvent | PointerEvent, info: { offset: { y: number }; velocity: { y: number } }) {
-    if (dragStartedFromHandle.current && (info.offset.y > 100 || info.velocity.y > 600)) {
+    if (info.offset.y > 100 || info.velocity.y > 600) {
       onClose();
     } else {
       dragY.set(0);
     }
-    dragStartedFromHandle.current = false;
   }
 
-  // Only allow drag-to-dismiss when the gesture starts from the drag handle
-  // or when the content is scrolled to the top. This prevents accidental
-  // dismisses when the user is scrolling inside the modal on iOS.
-  const handlePointerDownOnSheet = useCallback((e: React.PointerEvent) => {
-    const handle = handleRef.current;
-    const content = contentRef.current;
-    const target = e.target as Node;
-
-    // If the touch started on the drag handle, always allow drag
-    if (handle && handle.contains(target)) {
-      dragStartedFromHandle.current = true;
+  const ensureFocusedFieldVisible = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (
+      !(target instanceof HTMLInputElement) &&
+      !(target instanceof HTMLTextAreaElement) &&
+      !(target instanceof HTMLSelectElement) &&
+      !(target instanceof HTMLButtonElement)
+    ) {
       return;
     }
 
-    // If content is scrolled to top (or not scrollable), allow drag
-    if (content && content.scrollTop <= 0) {
-      dragStartedFromHandle.current = true;
-      return;
+    if (focusScrollTimerRef.current) {
+      window.clearTimeout(focusScrollTimerRef.current);
     }
 
-    // Otherwise block the drag — user is scrolling content
-    dragStartedFromHandle.current = false;
+    focusScrollTimerRef.current = window.setTimeout(() => {
+      target.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest',
+      });
+    }, 120);
   }, []);
+
+  const contentBottomPadding = `calc(1.5rem + var(--safe-area-bottom) + ${keyboardInset}px)`;
 
   return (
     <AnimatePresence>
@@ -79,25 +139,36 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
           <motion.div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={onClose}
+            onTouchMove={(e) => e.preventDefault()}
             style={{ opacity }}
           />
 
           {/* Sheet — mobile: drag-to-dismiss; desktop: centered */}
           <motion.div
             className={`relative w-full ${sizeClasses[size]} md:mx-4 rounded-t-3xl md:rounded-2xl border border-white/[0.10] bg-bg-secondary/96 shadow-2xl flex flex-col`}
-            style={{ y: dragY, maxHeight: '92dvh' }}
+            style={{
+              y: dragY,
+              maxHeight: 'calc(100dvh - var(--safe-area-top) - 0.35rem)',
+            }}
             initial={{ y: '100%', opacity: 0 }}
             animate={{ y: 0, opacity: 1, transition: { type: 'spring', stiffness: 340, damping: 34, mass: 0.9 } }}
             exit={{ y: '100%', opacity: 0, transition: { duration: 0.22, ease: 'easeIn' } }}
-            drag="y"
+            drag={keyboardInset > 0 ? false : 'y'}
+            dragControls={dragControls}
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0, bottom: 0.4 }}
             onDragEnd={handleDragEnd}
-            dragListener={true}
-            onPointerDown={handlePointerDownOnSheet}
+            dragListener={false}
           >
             {/* Drag handle — mobile only */}
-            <div ref={handleRef} className="md:hidden flex justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing">
+            <div
+              ref={handleRef}
+              onPointerDown={(e) => {
+                if (keyboardInset > 0) return;
+                dragControls.start(e);
+              }}
+              className="md:hidden flex justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing touch-none"
+            >
               <div className="w-10 h-1 rounded-full bg-white/20" />
             </div>
 
@@ -120,7 +191,12 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
             <div
               ref={contentRef}
               className="overflow-y-auto overscroll-contain px-5 pb-6 md:px-6 md:pb-7"
-              style={{ paddingBottom: 'calc(1.5rem + var(--safe-area-bottom))' }}
+              style={{
+                paddingBottom: contentBottomPadding,
+                scrollPaddingBottom: contentBottomPadding,
+                WebkitOverflowScrolling: 'touch',
+              }}
+              onFocusCapture={ensureFocusedFieldVisible}
             >
               {children}
             </div>

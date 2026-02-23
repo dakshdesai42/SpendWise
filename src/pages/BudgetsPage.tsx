@@ -78,7 +78,7 @@ export default function BudgetsPage() {
 
   return (
     <div>
-      <div className="flex items-start sm:items-center justify-between gap-3 py-3 md:py-4 px-1 sm:px-0">
+      <div className="app-page-header flex items-start sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl lg:text-2xl font-bold tracking-tight text-text-primary">Budgets</h2>
           <p className="text-sm text-text-secondary mt-1">{formatMonth(currentMonth)}</p>

@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { forwardRef } from 'react';
+import { forwardRef, useId } from 'react';
 
 const Input = forwardRef<HTMLInputElement, {
   label?: string;
@@ -10,10 +10,13 @@ const Input = forwardRef<HTMLInputElement, {
   { label, error, className, icon, ...props },
   ref
 ) {
+  const generatedId = useId();
+  const inputId = props.id || generatedId;
+
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-xs font-semibold tracking-wide text-text-secondary">
+        <label htmlFor={inputId} className="block text-sm font-semibold tracking-wide text-text-secondary">
           {label}
         </label>
       )}
@@ -25,9 +28,11 @@ const Input = forwardRef<HTMLInputElement, {
         )}
         <input
           ref={ref}
+          id={inputId}
+          aria-invalid={!!error}
           className={clsx(
             'w-full rounded-xl border border-white/[0.10] bg-white/[0.05]',
-            'px-4 py-3 text-sm text-text-primary placeholder:text-text-tertiary/85',
+            'px-4 py-3 text-base md:text-sm text-text-primary placeholder:text-text-tertiary/85 min-h-11',
             'focus:border-accent-primary/55 focus:ring-2 focus:ring-accent-primary/20',
             'focus-visible:outline-none',
             'transition-all duration-200',

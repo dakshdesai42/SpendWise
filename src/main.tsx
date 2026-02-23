@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
+import { initializeIOSNativeChrome } from './native/iosSetup';
 import App from './App';
 import './styles/app.css';
 
@@ -18,6 +19,8 @@ const queryClient = new QueryClient({
   },
 });
 
+void initializeIOSNativeChrome();
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
@@ -27,6 +30,9 @@ createRoot(document.getElementById('root')!).render(
             <App />
             <Toaster
               position="top-center"
+              containerStyle={{
+                top: 'calc(env(safe-area-inset-top) + 10px)',
+              }}
               toastOptions={{
                 style: {
                   background: '#1C1C1E',

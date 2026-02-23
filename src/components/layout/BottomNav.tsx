@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
+import { hapticLight, hapticMedium } from '../../utils/haptics';
 import { Keyboard } from '@capacitor/keyboard';
 import {
   HiHome,
@@ -72,16 +73,16 @@ export default function BottomNav({ onAddExpense }: { onAddExpense?: () => void 
 
   return (
     <nav
-      className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/[0.08] bg-bg-secondary/95 shadow-[0_-8px_24px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-transform duration-200 ${
-        keyboardVisible ? 'translate-y-full pointer-events-none' : 'translate-y-0'
-      }`}
+      data-ios-liquid-tabbar="true"
+      className={`bottom-nav-shell lg:hidden fixed bottom-0 left-0 right-0 z-40 transition-transform duration-200 ${keyboardVisible ? 'translate-y-full pointer-events-none' : 'translate-y-0'
+        }`}
       style={{
         paddingBottom: 'var(--safe-area-bottom)',
         paddingLeft: 'max(0.5rem, var(--safe-area-left))',
         paddingRight: 'max(0.5rem, var(--safe-area-right))',
       }}
     >
-      <div className="flex h-[4.5rem] items-center px-1.5">
+      <div className="bottom-nav-track flex items-center px-1.5" style={{ height: 'var(--bottom-nav-height)' }}>
         {/* Left side */}
         <div className="flex flex-1 justify-around">
           {leftItems.map((item) => (
@@ -92,11 +93,14 @@ export default function BottomNav({ onAddExpense }: { onAddExpense?: () => void 
         {/* Center FAB */}
         <div className="flex items-center justify-center px-3">
           <motion.button
-            onClick={onAddExpense}
+            onClick={() => { hapticMedium(); onAddExpense?.(); }}
             whileTap={{ scale: 0.9 }}
-            className="flex h-[3.75rem] w-[3.75rem] -mt-7 items-center justify-center rounded-full border border-white/20 shadow-lg shadow-accent-primary/35"
+            className="bottom-nav-fab flex items-center justify-center rounded-full border border-white/20 shadow-lg shadow-accent-primary/35"
             aria-label="Add expense"
             style={{
+              width: 'var(--bottom-nav-fab-size, 3.5rem)',
+              height: 'var(--bottom-nav-fab-size, 3.5rem)',
+              marginTop: 'calc(var(--bottom-nav-fab-lift, 1.5rem) * -1)',
               background: 'linear-gradient(135deg, var(--color-accent-primary) 0%, #0066d6 100%)',
             }}
           >
@@ -119,7 +123,8 @@ function NavTabItem({ item }: { item: { to: string; icon: any; label: string } }
   return (
     <NavLink
       to={item.to}
-      className="relative flex min-h-11 w-[4.25rem] flex-col items-center justify-center gap-1 rounded-2xl py-1.5"
+      onClick={() => hapticLight()}
+      className="bottom-nav-item relative flex min-h-11 w-[4.25rem] flex-col items-center justify-center gap-1 rounded-2xl py-1.5"
       aria-label={item.label}
     >
       {({ isActive }) => (
@@ -128,7 +133,7 @@ function NavTabItem({ item }: { item: { to: string; icon: any; label: string } }
           {isActive && (
             <motion.div
               layoutId="bottomnav-pill"
-              className="absolute inset-x-0 top-0 bottom-0 rounded-2xl bg-accent-primary/12"
+              className="bottom-nav-active-pill absolute inset-x-0 top-0 bottom-0 rounded-2xl bg-accent-primary/12"
               transition={{ type: 'spring', stiffness: 400, damping: 35 }}
             />
           )}

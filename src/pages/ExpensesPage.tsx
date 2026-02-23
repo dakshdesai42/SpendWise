@@ -1,5 +1,6 @@
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import { useFAB } from '../context/FABContext';
 import { format, addMonths, subMonths } from 'date-fns';
 import { HiPlus, HiChevronLeft, HiChevronRight, HiArrowUpTray, HiTrash, HiPause, HiPlay } from 'react-icons/hi2';
@@ -38,6 +39,7 @@ export default function ExpensesPage() {
   const { user, demoMode } = useAuth();
   const { hostCurrency } = useCurrency();
   const { setFABAction } = useFAB();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState('transactions');
   const [month, setMonth] = useState(getCurrentMonth());
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -136,16 +138,32 @@ export default function ExpensesPage() {
         if (!expense.id) return;
         await deleteExpense(user!.uid, expense.id, expense.month ?? getCurrentMonth());
         toast.success('Expense deleted');
+        // If this was a recurring occurrence, nuke the upcoming bills cache
+        // so the dashboard can't show stale data from before the deletion.
+        // removeQueries completely removes cached data (unlike invalidateQueries
+        // which still serves stale cache while refetching in background).
+        if (expense.isRecurring) {
+          queryClient.removeQueries({ queryKey: ['recurring', 'upcoming'] });
+          queryClient.invalidateQueries({ queryKey: ['recurring'] });
+        }
       } else {
         const recurringExpense = confirmDelete.item as RecurringBill;
         if (!recurringExpense.id) return;
-        const { deletedFutureOccurrences } = await deleteRecurringExpense(user!.uid, recurringExpense.id);
-        if (deletedFutureOccurrences > 0) {
+        const { deletedFutureOccurrences, cleanupWarning } = await deleteRecurringExpense(user!.uid, recurringExpense.id);
+        if (cleanupWarning) {
+          toast.success('Recurring rule removed. Some linked entries may require a refresh.');
+        } else if (deletedFutureOccurrences > 0) {
           toast.success(`Recurring expense removed and ${deletedFutureOccurrences} future occurrence${deletedFutureOccurrences === 1 ? '' : 's'} deleted`);
         } else {
           toast.success('Recurring expense removed');
         }
+        // Nuke the upcoming bills cache entirely, then invalidate the rest.
+        // removeQueries ensures the dashboard has NO stale data to show.
+        queryClient.removeQueries({ queryKey: ['recurring', 'upcoming'] });
+        queryClient.invalidateQueries({ queryKey: ['recurring'] });
       }
+      // Also invalidate expense caches since recurring deletion removes future occurrences
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
       loadAll();
     } catch {
       toast.error('Failed to delete');
@@ -157,6 +175,9 @@ export default function ExpensesPage() {
     if (!rec.id) return;
     await toggleRecurringExpense(user!.uid, rec.id, !rec.isActive);
     toast.success(rec.isActive ? 'Paused' : 'Resumed');
+    // Nuke upcoming bills cache and invalidate recurring caches
+    queryClient.removeQueries({ queryKey: ['recurring', 'upcoming'] });
+    queryClient.invalidateQueries({ queryKey: ['recurring'] });
     loadAll();
   }
 
@@ -171,25 +192,47 @@ export default function ExpensesPage() {
     if (next <= getCurrentMonth()) setMonth(next);
   }
 
-  const filtered = filter === 'all'
-    ? expenses
-    : expenses.filter((e) => e.category === filter);
+  const {
+    filtered,
+    total,
+    categoriesWithCount,
+    visibleFilters,
+    hasMoreFilters,
+    activeFilterLabel,
+  } = useMemo(() => {
+    const filteredExpenses = filter === 'all'
+      ? expenses
+      : expenses.filter((e) => e.category === filter);
 
-  const total = filtered.reduce((s, e) => s + (e.amount || 0), 0);
-  const categoriesWithCount = CATEGORIES
-    .map((cat) => ({ ...cat, count: expenses.filter((e) => e.category === cat.id).length }))
-    .filter((cat) => cat.count > 0)
-    .sort((a, b) => b.count - a.count);
-  const visibleFilters = showAllFilters ? categoriesWithCount : categoriesWithCount.slice(0, 4);
-  const hasMoreFilters = categoriesWithCount.length > 4;
-  const activeFilterLabel = filter === 'all'
-    ? 'all categories'
-    : CATEGORIES.find((cat) => cat.id === filter)?.label || filter;
+    const totalAmount = filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+    const categoryCounts = new Map<string, number>();
+    for (const expense of expenses) {
+      categoryCounts.set(expense.category, (categoryCounts.get(expense.category) || 0) + 1);
+    }
+
+    const categoryList = CATEGORIES
+      .map((cat) => ({ ...cat, count: categoryCounts.get(cat.id) || 0 }))
+      .filter((cat) => cat.count > 0)
+      .sort((a, b) => b.count - a.count);
+
+    const activeLabel = filter === 'all'
+      ? 'all categories'
+      : CATEGORIES.find((cat) => cat.id === filter)?.label || filter;
+
+    return {
+      filtered: filteredExpenses,
+      total: totalAmount,
+      categoriesWithCount: categoryList,
+      visibleFilters: showAllFilters ? categoryList : categoryList.slice(0, 4),
+      hasMoreFilters: categoryList.length > 4,
+      activeFilterLabel: activeLabel,
+    };
+  }, [expenses, filter, showAllFilters]);
 
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start sm:items-center justify-between gap-3 py-3 md:py-4 px-1 sm:px-0">
+      <div className="app-page-header flex items-start sm:items-center justify-between gap-3">
         <h2 className="text-xl lg:text-2xl font-bold tracking-tight text-text-primary">Expenses</h2>
         <div className="flex gap-2">
           <Button
