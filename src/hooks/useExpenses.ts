@@ -451,21 +451,11 @@ export function useDeleteExpense() {
                 queryClient.invalidateQueries({ queryKey: ['expenses', 'summary', variables.userId] }),
             ]);
         },
-        onSettled: async (_data, _error, variables, context) => {
-            const invalidations = [
+        onSettled: async (_data, _error, variables) => {
+            await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ['expenses', 'range', variables.userId] }),
                 queryClient.invalidateQueries({ queryKey: ['expenses', 'summaries', variables.userId] }),
-            ];
-            // If the deleted expense was a recurring occurrence, a skip marker was
-            // created — nuke the upcoming bills cache so the dashboard can't show
-            // stale data. removeQueries completely removes cached data.
-            if (context?.previousExpense?.isRecurring) {
-                queryClient.removeQueries({ queryKey: ['recurring', 'upcoming'] });
-                invalidations.push(
-                    queryClient.invalidateQueries({ queryKey: ['recurring'] }),
-                );
-            }
-            await Promise.all(invalidations);
+            ]);
         },
     });
 }

@@ -138,14 +138,6 @@ export default function ExpensesPage() {
         if (!expense.id) return;
         await deleteExpense(user!.uid, expense.id, expense.month ?? getCurrentMonth());
         toast.success('Expense deleted');
-        // If this was a recurring occurrence, nuke the upcoming bills cache
-        // so the dashboard can't show stale data from before the deletion.
-        // removeQueries completely removes cached data (unlike invalidateQueries
-        // which still serves stale cache while refetching in background).
-        if (expense.isRecurring) {
-          queryClient.removeQueries({ queryKey: ['recurring', 'upcoming'] });
-          queryClient.invalidateQueries({ queryKey: ['recurring'] });
-        }
       } else {
         const recurringExpense = confirmDelete.item as RecurringBill;
         if (!recurringExpense.id) return;
@@ -157,12 +149,11 @@ export default function ExpensesPage() {
         } else {
           toast.success('Recurring expense removed');
         }
-        // Nuke the upcoming bills cache entirely, then invalidate the rest.
-        // removeQueries ensures the dashboard has NO stale data to show.
-        queryClient.removeQueries({ queryKey: ['recurring', 'upcoming'] });
-        queryClient.invalidateQueries({ queryKey: ['recurring'] });
       }
-      // Also invalidate expense caches since recurring deletion removes future occurrences
+      // Invalidate React Query caches for the rules list and expenses.
+      // Upcoming bills don't need invalidation — they use gcTime: 0 so
+      // the dashboard always fetches fresh data from Firestore on mount.
+      queryClient.invalidateQueries({ queryKey: ['recurring'] });
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       loadAll();
     } catch {
@@ -175,8 +166,6 @@ export default function ExpensesPage() {
     if (!rec.id) return;
     await toggleRecurringExpense(user!.uid, rec.id, !rec.isActive);
     toast.success(rec.isActive ? 'Paused' : 'Resumed');
-    // Nuke upcoming bills cache and invalidate recurring caches
-    queryClient.removeQueries({ queryKey: ['recurring', 'upcoming'] });
     queryClient.invalidateQueries({ queryKey: ['recurring'] });
     loadAll();
   }

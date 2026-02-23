@@ -92,18 +92,20 @@ export function useDashboardData(userId: string | undefined, currentMonth: strin
         enabled: !!userId && !demoMode,
     });
 
-    // Upcoming bills — self-contained query that fetches its own rules fresh
-    // from Firestore every time. Uses staleTime: 0 and refetchOnMount: 'always'
-    // to override global defaults (staleTime: 30s) so deleted recurring rules
-    // are never shown from stale cache.
+    // Upcoming bills — completely self-contained, zero-cache query.
+    // gcTime: 0 means data is garbage-collected the instant the Dashboard
+    // unmounts, so navigating away and back always triggers a fresh Firestore
+    // fetch. This eliminates ALL stale-data bugs (deleted rules still showing,
+    // etc.) without needing any cache invalidation from other pages.
     const upcomingBillsQuery = useQuery<UpcomingBill[]>({
-        queryKey: ['recurring', 'upcoming', userId],
+        queryKey: ['upcoming-bills', userId],
         queryFn: async () => {
             const rules = await getRecurringExpenses(userId!);
             return getUpcomingRecurringBillsForUser(userId!, rules, new Date(), 30);
         },
         enabled: !!userId && !demoMode,
         staleTime: 0,
+        gcTime: 0,
         refetchOnMount: 'always',
     });
 
