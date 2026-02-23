@@ -15,6 +15,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { getCurrentMonth, formatCurrency } from '../utils/formatters';
 import { containerVariants, itemVariants } from '../utils/animations';
 import { useDashboardData } from '../hooks/useDashboardData';
+import { useUpcomingBills } from '../hooks/useUpcomingBills';
 import { useAddExpense } from '../hooks/useExpenses';
 import { useAddGoal, useApplyUnderspendToGoals } from '../hooks/useGoals';
 import { useAutoPostRecurringForMonth } from '../hooks/useRecurring';
@@ -62,10 +63,18 @@ export default function DashboardPage() {
   const currentMonth = getCurrentMonth();
 
   const {
-    recentExpenses, summary, budget, goals, upcomingBills,
-    upcomingBillsLoading, weeklyReview, trendData,
+    recentExpenses, summary, budget, goals,
+    weeklyReview, trendData,
     isLoading: loading, hasError, refetchAll
   } = useDashboardData(user?.uid, currentMonth, demoMode);
+
+  // Upcoming bills — fetched fresh from Firestore on every mount.
+  // No React Query, no caching. Deleted rules can never appear.
+  const {
+    bills: upcomingBills,
+    loading: upcomingBillsLoading,
+    refetch: refetchUpcomingBills,
+  } = useUpcomingBills(user?.uid, demoMode);
 
   const { mutateAsync: addExpenseMutate } = useAddExpense();
   const { mutateAsync: addGoalMutate } = useAddGoal();
@@ -121,7 +130,7 @@ export default function DashboardPage() {
   async function handleRetryDataLoad() {
     setRetryingData(true);
     try {
-      await refetchAll();
+      await Promise.allSettled([refetchAll(), refetchUpcomingBills()]);
     } finally {
       setRetryingData(false);
     }
