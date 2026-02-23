@@ -5,6 +5,7 @@ import {
   updateDoc,
   deleteDoc,
   getDocs,
+  getDocsFromServer,
   query,
   orderBy,
   serverTimestamp,
@@ -41,7 +42,15 @@ function recurringRef(userId: string) {
 
 export async function getRecurringExpenses(userId: string): Promise<RecurringBill[]> {
   const q = query(recurringRef(userId), orderBy('createdAt', 'desc'));
-  const snapshot = await getDocs(q);
+  // Always read from server — Firestore's IndexedDB cache can serve stale
+  // data (deleted rules still present), especially on Capacitor iOS.
+  // Fall back to default getDocs if offline.
+  let snapshot;
+  try {
+    snapshot = await getDocsFromServer(q);
+  } catch {
+    snapshot = await getDocs(q);
+  }
   return snapshot.docs.map((d) => ({
     ...d.data() as RecurringBill,
     id: d.id,

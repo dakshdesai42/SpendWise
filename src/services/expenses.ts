@@ -5,6 +5,7 @@ import {
   updateDoc,
   deleteDoc,
   getDocs,
+  getDocsFromServer,
   getDoc,
   setDoc,
   query,
@@ -396,7 +397,13 @@ export async function markRecurringOccurrenceSkipped(
 
 export async function getRecurringSkipKeysForMonth(userId: string, month: string): Promise<Set<string>> {
   const q = query(recurringSkipsRef(userId), where('month', '==', month));
-  const snapshot = await getDocs(q);
+  // Always read from server to avoid stale IndexedDB cache
+  let snapshot;
+  try {
+    snapshot = await getDocsFromServer(q);
+  } catch {
+    snapshot = await getDocs(q);
+  }
   return new Set(
     snapshot.docs
       .map((d) => {

@@ -151,8 +151,6 @@ export default function ExpensesPage() {
         }
       }
       // Invalidate React Query caches for the rules list and expenses.
-      // Upcoming bills don't need invalidation — they use gcTime: 0 so
-      // the dashboard always fetches fresh data from Firestore on mount.
       queryClient.invalidateQueries({ queryKey: ['recurring'] });
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       loadAll();

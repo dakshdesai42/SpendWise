@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
@@ -26,10 +27,22 @@ export default function ConfirmSheet({
   title?: string;
   message?: string;
   confirmLabel?: string;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   danger?: boolean;
 }) {
+  const [busy, setBusy] = useState(false);
+
+  async function handleConfirm() {
+    setBusy(true);
+    try {
+      await onConfirm();
+    } finally {
+      setBusy(false);
+      onCancel();
+    }
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -42,7 +55,7 @@ export default function ConfirmSheet({
           {/* Backdrop */}
           <motion.div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={onCancel}
+            onClick={busy ? undefined : onCancel}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -69,17 +82,19 @@ export default function ConfirmSheet({
             {/* Action buttons stacked */}
             <div className="flex flex-col gap-2">
               <button
-                onClick={() => { onConfirm(); onCancel(); }}
-                className={`w-full py-4 rounded-2xl text-sm font-semibold transition-opacity active:opacity-70 ${danger
+                onClick={handleConfirm}
+                disabled={busy}
+                className={`w-full py-4 rounded-2xl text-sm font-semibold transition-opacity active:opacity-70 disabled:opacity-50 ${danger
                   ? 'bg-danger/90 text-white'
                   : 'bg-accent-primary/90 text-white'
                   }`}
               >
-                {confirmLabel}
+                {busy ? 'Deleting…' : confirmLabel}
               </button>
               <button
                 onClick={onCancel}
-                className="w-full py-4 rounded-2xl text-sm font-semibold bg-bg-secondary/98 border border-white/[0.10] text-text-primary transition-opacity active:opacity-70"
+                disabled={busy}
+                className="w-full py-4 rounded-2xl text-sm font-semibold bg-bg-secondary/98 border border-white/[0.10] text-text-primary transition-opacity active:opacity-70 disabled:opacity-50"
               >
                 Cancel
               </button>

@@ -19,7 +19,6 @@ import { useUpcomingBills } from '../hooks/useUpcomingBills';
 import { useAddExpense } from '../hooks/useExpenses';
 import { useAddGoal, useApplyUnderspendToGoals } from '../hooks/useGoals';
 import { useAutoPostRecurringForMonth } from '../hooks/useRecurring';
-import { reactivateAllRecurringRules } from '../services/recurring';
 import { CATEGORY_MAP } from '../utils/constants';
 import Header from '../components/layout/Header';
 import GlassCard from '../components/ui/GlassCard';
@@ -83,20 +82,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user?.uid && !demoMode) {
-      (async () => {
-        // One-time data repair: re-enable recurring rules that may have been
-        // incorrectly deactivated. Guarded by localStorage so it only runs once.
-        const migrationKey = `sw_reactivate_rules_${user.uid}`;
-        if (!localStorage.getItem(migrationKey)) {
-          try {
-            await reactivateAllRecurringRules(user.uid);
-          } catch { /* non-blocking */ }
-          localStorage.setItem(migrationKey, '1');
-        }
-        autoPostRecurring({ userId: user.uid, month: currentMonth }).catch(() => {
-          // Non-blocking background sync.
-        });
-      })();
+      autoPostRecurring({ userId: user.uid, month: currentMonth }).catch(() => {
+        // Non-blocking background sync.
+      });
     }
   }, [user?.uid, currentMonth, demoMode, autoPostRecurring]);
 
