@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getDb } from '../services/firebase';
 import { signOut } from '../services/auth';
 import {
+  dispatchBankSyncEvent,
   disconnectBankConnection,
   getBankConnections,
   linkBankAccountWithPlaid,
@@ -28,6 +30,7 @@ const currencyOptions = POPULAR_CURRENCIES.map((c) => ({
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, profile, refreshProfile, demoMode } = useAuth();
   const { getRate } = useCurrency();
   const [homeCurr, setHomeCurr] = useState(profile?.homeCurrency || '');
@@ -149,6 +152,12 @@ export default function SettingsPage() {
     setSyncingConnectionId(syncKey);
     try {
       const result = await syncBankTransactions(user.uid, connectionId);
+      await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+        queryClient.invalidateQueries({ queryKey: ['budgets', user.uid] }),
+        queryClient.invalidateQueries({ queryKey: ['recurring', user.uid] }),
+      ]);
+      dispatchBankSyncEvent({ ...result, source: 'manual' });
       toast.success(
         `Synced. Imported ${result.importedCount}, skipped ${result.skippedCount}, errors ${result.errorCount}.`
       );

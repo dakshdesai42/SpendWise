@@ -3,9 +3,14 @@ import { useEffect } from 'react';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import { FABProvider, useFAB } from '../../context/FABContext';
+import { useAuth } from '../../context/AuthContext';
+import { useAutoBankSync } from '../../hooks/useAutoBankSync';
 
 function Layout() {
   const { triggerFAB } = useFAB();
+  const { user, demoMode } = useAuth();
+
+  useAutoBankSync(user?.uid, demoMode);
 
   useEffect(() => {
     const handleNativeAddExpense = () => triggerFAB();

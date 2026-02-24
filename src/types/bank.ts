@@ -36,3 +36,7 @@ export interface BankSyncResult {
   errorCount: number;
   lastSyncAt?: string | null;
 }
+
+export interface BankSyncEventDetail extends BankSyncResult {
+  source?: 'manual' | 'auto' | 'background';
+}

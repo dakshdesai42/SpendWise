@@ -1,9 +1,16 @@
 import { collection, getDocs } from 'firebase/firestore';
 import { getAuthInstance, getDb } from './firebase';
-import type { BankConnection, BankLinkedAccount, BankSyncResult, PlaidLinkSuccessMetadata } from '../types/bank';
+import type {
+  BankConnection,
+  BankLinkedAccount,
+  BankSyncEventDetail,
+  BankSyncResult,
+  PlaidLinkSuccessMetadata,
+} from '../types/bank';
 
 const PLAID_SCRIPT_URL = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
 const PLAID_SCRIPT_ID = 'spendwise-plaid-link-script';
+export const BANK_SYNC_EVENT_NAME = 'spendwise-bank-sync';
 
 function normalizeTimestamp(value: unknown): string | null {
   if (!value) return null;
@@ -64,12 +71,29 @@ function sortConnectionsNewestFirst(a: BankConnection, b: BankConnection): numbe
   return bTime.localeCompare(aTime);
 }
 
+function parseCount(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value));
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return Math.max(0, Math.floor(parsed));
+  }
+  return 0;
+}
+
 function getBankApiBaseUrl(): string {
   const value = (import.meta.env.VITE_BANK_API_BASE_URL as string | undefined)?.trim();
   if (!value) {
     throw new Error('Bank API is not configured. Set VITE_BANK_API_BASE_URL in your .env file.');
   }
   return value.replace(/\/+$/, '');
+}
+
+export function hasBankApiConfigured(): boolean {
+  return !!(import.meta.env.VITE_BANK_API_BASE_URL as string | undefined)?.trim();
+}
+
+export function dispatchBankSyncEvent(detail: BankSyncEventDetail): void {
+  window.dispatchEvent(new CustomEvent<BankSyncEventDetail>(BANK_SYNC_EVENT_NAME, { detail }));
 }
 
 async function getUserToken(userId: string): Promise<string> {
@@ -148,9 +172,13 @@ type ExchangePublicTokenResponse = {
 
 type SyncTransactionsResponse = {
   importedCount?: number;
+  imported_count?: number;
   skippedCount?: number;
+  skipped_count?: number;
   errorCount?: number;
+  error_count?: number;
   lastSyncAt?: string | null;
+  last_sync_at?: string | null;
 };
 
 export async function getBankConnections(userId: string): Promise<BankConnection[]> {
@@ -188,10 +216,10 @@ export async function syncBankTransactions(
     connectionId: connectionId || null,
   });
   return {
-    importedCount: response.importedCount || 0,
-    skippedCount: response.skippedCount || 0,
-    errorCount: response.errorCount || 0,
-    lastSyncAt: response.lastSyncAt || null,
+    importedCount: parseCount(response.importedCount ?? response.imported_count),
+    skippedCount: parseCount(response.skippedCount ?? response.skipped_count),
+    errorCount: parseCount(response.errorCount ?? response.error_count),
+    lastSyncAt: response.lastSyncAt ?? response.last_sync_at ?? null,
   };
 }
 

@@ -4,6 +4,7 @@ import {
     getUpcomingRecurringBills,
     getUpcomingRecurringBillsForUser,
 } from '../services/recurring';
+import { BANK_SYNC_EVENT_NAME } from '../services/bankSync';
 import { DEMO_RECURRING } from '../utils/demoData';
 import { UpcomingBill } from '../types/models';
 
@@ -43,6 +44,16 @@ export function useUpcomingBills(userId: string | undefined, demoMode: boolean =
 
     useEffect(() => {
         fetchBills();
+    }, [fetchBills]);
+
+    useEffect(() => {
+        const handleBankSync = () => {
+            void fetchBills();
+        };
+        window.addEventListener(BANK_SYNC_EVENT_NAME, handleBankSync);
+        return () => {
+            window.removeEventListener(BANK_SYNC_EVENT_NAME, handleBankSync);
+        };
     }, [fetchBills]);
 
     return { bills, loading, refetch: fetchBills };

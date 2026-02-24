@@ -92,6 +92,13 @@ Deduping recommendation:
 - Use `fingerprint = "bank:<provider>:<account_id>:<transaction_id>"`
 - Skip if fingerprint already exists in `users/{userId}/expenses`
 
+For real automatic card capture (without opening the app), backend should also:
+
+- Subscribe to Plaid transaction webhooks
+- Trigger the same sync/import pipeline when webhook events arrive
+- Write imported expenses directly to Firestore
+- Keep sync idempotent using transaction fingerprint dedupe
+
 ## 4) Disconnect Connection
 
 `POST /plaid/disconnect`
@@ -123,4 +130,3 @@ Server should:
 - Verify Firebase ID token on every request
 - Enforce `decodedToken.uid === body.userId`
 - Never expose provider access tokens to client
-
