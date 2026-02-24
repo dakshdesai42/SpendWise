@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { initializeIOSNativeChrome } from './native/iosSetup';
 import DynamicToaster from './components/ui/DynamicToaster';
+import AppErrorBoundary from './components/ui/AppErrorBoundary';
 import App from './App';
 import './styles/app.css';
 
@@ -27,8 +28,10 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <CurrencyProvider>
-            <App />
-            <DynamicToaster />
+            <AppErrorBoundary>
+              <App />
+              <DynamicToaster />
+            </AppErrorBoundary>
           </CurrencyProvider>
         </AuthProvider>
       </QueryClientProvider>

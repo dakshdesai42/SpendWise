@@ -27,6 +27,7 @@ import PullToRefresh from '../components/ui/PullToRefresh';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import ExpenseForm from '../components/expense/ExpenseForm';
 import toast from 'react-hot-toast';
 import { parseLocalDate } from '../utils/date';
 
@@ -34,7 +35,6 @@ import { parseLocalDate } from '../utils/date';
 const SpendingDonut = lazy(() => import('../components/charts/SpendingDonut'));
 const MonthlyTrend = lazy(() => import('../components/charts/MonthlyTrend'));
 const BudgetOverview = lazy(() => import('../components/budget/BudgetOverview'));
-const ExpenseForm = lazy(() => import('../components/expense/ExpenseForm'));
 const DashboardDeferredSections = lazy(() => import('../components/dashboard/DashboardDeferredSections'));
 
 function InsightLoadingState() {
@@ -524,15 +524,13 @@ Upcoming 30 days: ${formatCurrency(upcoming30Total, hostCurrency)}`;
           </Suspense>
         </motion.div>
 
-        <Suspense fallback={null}>
-          {showExpenseForm && (
-            <ExpenseForm
-              isOpen={showExpenseForm}
-              onClose={() => setShowExpenseForm(false)}
-              onSubmit={handleAddExpense}
-            />
-          )}
-        </Suspense>
+        {showExpenseForm && (
+          <ExpenseForm
+            isOpen={showExpenseForm}
+            onClose={() => setShowExpenseForm(false)}
+            onSubmit={handleAddExpense}
+          />
+        )}
 
         <Modal isOpen={showGoalModal} onClose={() => setShowGoalModal(false)} title="Create Savings Goal">
           <form onSubmit={handleCreateGoal} className="space-y-4">

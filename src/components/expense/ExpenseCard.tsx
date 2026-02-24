@@ -61,6 +61,7 @@ export default function ExpenseCard({ expense, onEdit, onDelete }: { expense: Ex
       <motion.div
         layoutId={`expense-card-${expense.id}`}
         drag={onEdit || onDelete ? 'x' : false}
+        dragSnapToOrigin
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={{ left: onDelete ? 0.3 : 0, right: onEdit ? 0.3 : 0 }}
         onDragEnd={handleDragEnd}
