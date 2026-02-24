@@ -79,8 +79,9 @@ export default function DashboardDeferredSections({
               {upcomingBills.slice(0, 6).map((bill, idx) => {
                 const cat = CATEGORY_MAP[bill.category as keyof typeof CATEGORY_MAP] || CATEGORY_MAP.other;
                 const dueDate = safeDueDate(bill);
+                const rowKey = `${bill.recurringId || 'bill'}:${dueDate.toISOString()}:${bill.amount}:${bill.note || bill.category}:${idx}`;
                 return (
-                  <div key={`${bill.recurringId || 'bill'}-${idx}`} className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
+                  <div key={rowKey} className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
                     <div className="min-w-0">
                       <p className="text-sm text-text-primary truncate">{bill.note || cat.label}</p>
                       <p className="text-xs text-text-tertiary">

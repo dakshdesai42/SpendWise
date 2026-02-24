@@ -33,16 +33,29 @@ function recurringRef(userId: string) {
   return collection(getDb(), 'users', userId, 'recurringExpenses');
 }
 
-export async function getRecurringExpenses(userId: string): Promise<RecurringBill[]> {
+export const RECURRING_RULES_CHANGED_EVENT_NAME = 'spendwise-recurring-rules-changed';
+
+function emitRecurringRulesChanged(): void {
+  window.dispatchEvent(new CustomEvent(RECURRING_RULES_CHANGED_EVENT_NAME));
+}
+
+type RecurringQueryOptions = {
+  serverOnly?: boolean;
+};
+
+export async function getRecurringExpenses(userId: string, options: RecurringQueryOptions = {}): Promise<RecurringBill[]> {
   const q = query(recurringRef(userId), orderBy('createdAt', 'desc'));
-  // Always read from server — Firestore's IndexedDB cache can serve stale
-  // data (deleted rules still present), especially on Capacitor iOS.
-  // Fall back to default getDocs if offline.
+  const { serverOnly = false } = options;
   let snapshot;
-  try {
+  if (serverOnly) {
     snapshot = await getDocsFromServer(q);
-  } catch {
-    snapshot = await getDocs(q);
+  } else {
+    // Prefer server to avoid stale IndexedDB cache, but allow fallback for offline UX.
+    try {
+      snapshot = await getDocsFromServer(q);
+    } catch {
+      snapshot = await getDocs(q);
+    }
   }
   return snapshot.docs.map((d) => ({
     ...d.data() as RecurringBill,
@@ -62,6 +75,7 @@ export async function addRecurringExpense(userId: string, data: Omit<RecurringBi
     isActive: true,
     createdAt: serverTimestamp(),
   });
+  emitRecurringRulesChanged();
   return docRef.id;
 }
 
@@ -70,6 +84,7 @@ export async function updateRecurringExpense(userId: string, id: string, updates
     ...updates,
     updatedAt: serverTimestamp(),
   });
+  emitRecurringRulesChanged();
 }
 
 export async function deleteRecurringExpense(
@@ -95,6 +110,7 @@ export async function deleteRecurringExpense(
     cleanupWarning = true;
     console.warn('Failed to cleanup recurring skip markers:', error);
   }
+  emitRecurringRulesChanged();
   return { deletedFutureOccurrences, cleanupWarning };
 }
 
@@ -103,6 +119,7 @@ export async function toggleRecurringExpense(userId: string, id: string, isActiv
     isActive,
     updatedAt: serverTimestamp(),
   });
+  emitRecurringRulesChanged();
 }
 
 type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -180,27 +197,46 @@ function toSafeDate(value: unknown): Date | null {
 }
 
 /** Advance a date by one frequency step, keeping the original day-of-month anchored. */
+function addMonthsAnchored(date: Date, months: number, anchorDay: number): Date {
+  const next = new Date(date);
+  const hours = next.getHours();
+  const minutes = next.getMinutes();
+  const seconds = next.getSeconds();
+  const milliseconds = next.getMilliseconds();
+
+  next.setDate(1); // Prevent rollover when moving month from a 29/30/31 day date.
+  next.setMonth(next.getMonth() + months);
+  const maxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+  next.setDate(Math.min(anchorDay, maxDay));
+  next.setHours(hours, minutes, seconds, milliseconds);
+  return next;
+}
+
+function addYearsAnchored(date: Date, years: number, anchorDay: number): Date {
+  const next = new Date(date);
+  const hours = next.getHours();
+  const minutes = next.getMinutes();
+  const seconds = next.getSeconds();
+  const milliseconds = next.getMilliseconds();
+
+  next.setDate(1); // Prevent leap-year rollover surprises.
+  next.setFullYear(next.getFullYear() + years);
+  const maxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+  next.setDate(Math.min(anchorDay, maxDay));
+  next.setHours(hours, minutes, seconds, milliseconds);
+  return next;
+}
+
 function stepOnce(date: Date, frequency: Frequency, anchorDay: number): Date {
   switch (frequency) {
     case 'daily':
       return addDays(date, 1);
     case 'weekly':
       return addWeeks(date, 1);
-    case 'yearly': {
-      const next = new Date(date);
-      next.setFullYear(next.getFullYear() + 1);
-      // Clamp to month length (e.g. Feb 28/29 for anchor day 31)
-      const maxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
-      next.setDate(Math.min(anchorDay, maxDay));
-      return next;
-    }
-    default: { // monthly
-      const next = new Date(date);
-      next.setMonth(next.getMonth() + 1);
-      const maxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
-      next.setDate(Math.min(anchorDay, maxDay));
-      return next;
-    }
+    case 'yearly':
+      return addYearsAnchored(date, 1, anchorDay);
+    default:
+      return addMonthsAnchored(date, 1, anchorDay);
   }
 }
 
@@ -219,18 +255,12 @@ function jumpNear(first: Date, rangeStart: Date, frequency: Frequency, anchorDay
     const monthsBetween = (rangeStart.getFullYear() - cursor.getFullYear()) * 12
       + (rangeStart.getMonth() - cursor.getMonth());
     if (monthsBetween > 1) {
-      cursor = new Date(cursor);
-      cursor.setMonth(cursor.getMonth() + monthsBetween - 1);
-      const maxDay = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
-      cursor.setDate(Math.min(anchorDay, maxDay));
+      cursor = addMonthsAnchored(cursor, monthsBetween - 1, anchorDay);
     }
   } else { // yearly
     const yearsBetween = rangeStart.getFullYear() - cursor.getFullYear();
     if (yearsBetween > 1) {
-      cursor = new Date(cursor);
-      cursor.setFullYear(cursor.getFullYear() + yearsBetween - 1);
-      const maxDay = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
-      cursor.setDate(Math.min(anchorDay, maxDay));
+      cursor = addYearsAnchored(cursor, yearsBetween - 1, anchorDay);
     }
   }
 
@@ -286,8 +316,9 @@ export async function autoPostRecurringForMonth(userId: string, month: string, o
       .filter((d) => !isAfter(d, cutoffDate));
 
     for (const occ of occurrences) {
-      const key = `${rec.id}:${formatDayKey(occ)}`;
-      const recurringDayKey = `${rec.id}:${formatDayKey(occ)}`;
+      const dayKey = formatDayKey(occ);
+      const key = `${rec.id}:${dayKey}`;
+      const recurringDayKey = `${rec.id}:${dayKey}`;
       if (skippedKeys.has(key)) continue;
       if (existingKeys.has(key) || existingRecurringByIdDay.has(recurringDayKey)) continue;
 
@@ -407,7 +438,7 @@ export async function getUpcomingRecurringBillsForUser(
   const allSkipped = new Set<string>();
   for (const month of months) {
     try {
-      const keys = await getRecurringSkipKeysForMonth(userId, month);
+      const keys = await getRecurringSkipKeysForMonth(userId, month, { serverOnly: true });
       for (const k of keys) allSkipped.add(k);
     } catch { /* ignore — treat as no skips */ }
   }

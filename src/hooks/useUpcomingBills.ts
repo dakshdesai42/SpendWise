@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getRecurringExpenses,
+  RECURRING_RULES_CHANGED_EVENT_NAME,
   getUpcomingRecurringBills,
   getUpcomingRecurringBillsForUser,
 } from '../services/recurring';
@@ -33,8 +34,10 @@ export function useUpcomingBills(userId: string | undefined, demoMode = false) {
     }
 
     setLoading(true);
+    // Force clean refresh so removed rules don't visually linger between fetches.
+    setBills([]);
     try {
-      const rules = await getRecurringExpenses(userId);
+      const rules = await getRecurringExpenses(userId, { serverOnly: true });
       const active = rules.filter((r) => r.isActive !== false);
 
       if (active.length === 0) {
@@ -66,7 +69,11 @@ export function useUpcomingBills(userId: string | undefined, demoMode = false) {
   useEffect(() => {
     const handler = () => void fetchBills();
     window.addEventListener(BANK_SYNC_EVENT_NAME, handler);
-    return () => window.removeEventListener(BANK_SYNC_EVENT_NAME, handler);
+    window.addEventListener(RECURRING_RULES_CHANGED_EVENT_NAME, handler);
+    return () => {
+      window.removeEventListener(BANK_SYNC_EVENT_NAME, handler);
+      window.removeEventListener(RECURRING_RULES_CHANGED_EVENT_NAME, handler);
+    };
   }, [fetchBills]);
 
   return { bills, loading, refetch: fetchBills };

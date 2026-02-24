@@ -395,14 +395,23 @@ export async function markRecurringOccurrenceSkipped(
   );
 }
 
-export async function getRecurringSkipKeysForMonth(userId: string, month: string): Promise<Set<string>> {
+export async function getRecurringSkipKeysForMonth(
+  userId: string,
+  month: string,
+  options: { serverOnly?: boolean } = {}
+): Promise<Set<string>> {
   const q = query(recurringSkipsRef(userId), where('month', '==', month));
-  // Always read from server to avoid stale IndexedDB cache
+  const { serverOnly = false } = options;
   let snapshot;
-  try {
+  if (serverOnly) {
     snapshot = await getDocsFromServer(q);
-  } catch {
-    snapshot = await getDocs(q);
+  } else {
+    // Prefer server to avoid stale IndexedDB cache, but allow offline fallback.
+    try {
+      snapshot = await getDocsFromServer(q);
+    } catch {
+      snapshot = await getDocs(q);
+    }
   }
   return new Set(
     snapshot.docs
