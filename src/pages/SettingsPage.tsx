@@ -4,6 +4,12 @@ import { motion } from 'framer-motion';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getDb } from '../services/firebase';
 import { signOut } from '../services/auth';
+import {
+  disconnectBankConnection,
+  getBankConnections,
+  linkBankAccountWithPlaid,
+  syncBankTransactions,
+} from '../services/bankSync';
 import { useAuth } from '../context/AuthContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { POPULAR_CURRENCIES, ACHIEVEMENTS } from '../utils/constants';
@@ -11,7 +17,8 @@ import { containerVariants, itemVariants } from '../utils/animations';
 import GlassCard from '../components/ui/GlassCard';
 import Button from '../components/ui/Button';
 import Select from '../components/ui/Select';
-
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import type { BankConnection } from '../types/bank';
 import toast from 'react-hot-toast';
 
 const currencyOptions = POPULAR_CURRENCIES.map((c) => ({
@@ -26,14 +33,49 @@ export default function SettingsPage() {
   const [homeCurr, setHomeCurr] = useState(profile?.homeCurrency || '');
   const [hostCurr, setHostCurr] = useState(profile?.hostCurrency || '');
   const [saving, setSaving] = useState(false);
+  const [connections, setConnections] = useState<BankConnection[]>([]);
+  const [loadingConnections, setLoadingConnections] = useState(false);
+  const [linkingBank, setLinkingBank] = useState(false);
+  const [syncingConnectionId, setSyncingConnectionId] = useState<string | null>(null);
+  const [disconnectingConnectionId, setDisconnectingConnectionId] = useState<string | null>(null);
 
   useEffect(() => {
     setHomeCurr(profile?.homeCurrency || '');
     setHostCurr(profile?.hostCurrency || '');
   }, [profile?.homeCurrency, profile?.hostCurrency]);
 
+  useEffect(() => {
+    if (!user || demoMode) {
+      setConnections([]);
+      setLoadingConnections(false);
+      return;
+    }
+    void loadConnections();
+  }, [user?.uid, demoMode]);
+
   const rate = homeCurr && hostCurr ? getRate(hostCurr, homeCurr) : 0;
   const userAchievements = profile?.achievements || [];
+
+  async function loadConnections() {
+    if (!user || demoMode) return;
+    setLoadingConnections(true);
+    try {
+      const list = await getBankConnections(user.uid);
+      setConnections(list);
+    } catch (error) {
+      console.error('Failed to load bank connections:', error);
+      toast.error('Unable to load linked bank accounts');
+    } finally {
+      setLoadingConnections(false);
+    }
+  }
+
+  function formatSyncTime(value: string | null | undefined): string {
+    if (!value) return 'Never synced';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Sync time unavailable';
+    return `Synced ${date.toLocaleString()}`;
+  }
 
   async function handleSaveCurrencies() {
     if (!homeCurr || !hostCurr) {
@@ -70,6 +112,67 @@ export default function SettingsPage() {
       navigate('/login');
     } catch (err) {
       toast.error('Failed to sign out');
+    }
+  }
+
+  async function handleLinkBank() {
+    if (!user) return;
+    if (demoMode) {
+      toast('Bank linking is disabled in demo mode');
+      return;
+    }
+
+    setLinkingBank(true);
+    try {
+      const result = await linkBankAccountWithPlaid(user.uid);
+      toast.success(
+        result.institutionName
+          ? `Connected ${result.institutionName}`
+          : 'Bank account linked successfully'
+      );
+      await loadConnections();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to link bank account';
+      if (message.toLowerCase().includes('canceled')) {
+        toast(message);
+      } else {
+        toast.error(message);
+      }
+    } finally {
+      setLinkingBank(false);
+    }
+  }
+
+  async function handleSyncBank(connectionId?: string) {
+    if (!user || demoMode) return;
+    const syncKey = connectionId || '__all__';
+    setSyncingConnectionId(syncKey);
+    try {
+      const result = await syncBankTransactions(user.uid, connectionId);
+      toast.success(
+        `Synced. Imported ${result.importedCount}, skipped ${result.skippedCount}, errors ${result.errorCount}.`
+      );
+      await loadConnections();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to sync bank transactions';
+      toast.error(message);
+    } finally {
+      setSyncingConnectionId(null);
+    }
+  }
+
+  async function handleDisconnectBank(connectionId: string) {
+    if (!user || demoMode) return;
+    setDisconnectingConnectionId(connectionId);
+    try {
+      await disconnectBankConnection(user.uid, connectionId);
+      toast.success('Bank connection removed');
+      await loadConnections();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to disconnect bank account';
+      toast.error(message);
+    } finally {
+      setDisconnectingConnectionId(null);
     }
   }
 
@@ -145,6 +248,103 @@ export default function SettingsPage() {
                 Save Currencies
               </Button>
             </div>
+          </GlassCard>
+        </motion.div>
+
+        {/* Achievements */}
+        <motion.div variants={itemVariants}>
+          <GlassCard className="p-6 md:p-7">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-sm font-medium text-text-secondary">Bank Connections (Beta)</h3>
+                <p className="text-xs text-text-tertiary mt-1">
+                  Link your bank account to import card transactions automatically.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleLinkBank}
+                loading={linkingBank}
+                disabled={!user || demoMode}
+              >
+                Link Bank
+              </Button>
+            </div>
+
+            {demoMode ? (
+              <p className="text-sm text-text-tertiary">
+                Bank linking is unavailable in demo mode.
+              </p>
+            ) : loadingConnections ? (
+              <div className="flex items-center gap-3 py-3">
+                <LoadingSpinner size="sm" />
+                <p className="text-sm text-text-tertiary">Loading linked accounts...</p>
+              </div>
+            ) : connections.length === 0 ? (
+              <p className="text-sm text-text-tertiary">
+                No linked bank accounts yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {connections.map((connection) => (
+                  <div
+                    key={connection.id}
+                    className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">
+                          {connection.institutionName}
+                        </p>
+                        <p className="text-xs text-text-tertiary mt-1">
+                          {connection.accountCount} account{connection.accountCount === 1 ? '' : 's'} • {connection.status}
+                        </p>
+                        <p className="text-xs text-text-tertiary mt-1">
+                          {formatSyncTime(connection.lastSyncedAt)}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          loading={syncingConnectionId === connection.id}
+                          onClick={() => handleSyncBank(connection.id)}
+                          disabled={disconnectingConnectionId === connection.id}
+                        >
+                          Sync
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          loading={disconnectingConnectionId === connection.id}
+                          onClick={() => handleDisconnectBank(connection.id)}
+                          disabled={syncingConnectionId === connection.id}
+                        >
+                          Disconnect
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!demoMode && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => handleSyncBank()}
+                  loading={syncingConnectionId === '__all__'}
+                  disabled={!connections.length || linkingBank}
+                >
+                  Sync All
+                </Button>
+                <span className="text-[11px] text-text-tertiary">
+                  Requires backend API at <code className="font-mono">VITE_BANK_API_BASE_URL</code>.
+                </span>
+              </div>
+            )}
           </GlassCard>
         </motion.div>
 
