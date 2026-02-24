@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import { FABProvider, useFAB } from '../../context/FABContext';
@@ -163,7 +163,17 @@ function Layout() {
           onTouchCancel={handleTouchCancel}
         >
           <div className="max-w-6xl mx-auto space-y-1 pb-24">
-            <Outlet />
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } }}
+                exit={{ opacity: 0, y: -10, transition: { duration: 0.2, ease: 'easeIn' } }}
+                className="w-full"
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
           </div>
         </motion.main>
       </div>

@@ -49,9 +49,9 @@ export default function BudgetForm({ isOpen, onClose, onSubmit, initialData }: {
       <form onSubmit={handleSubmit} className="space-y-5">
         <Input
           label={`Overall Monthly Budget (${hostCurrency})`}
-          type="number"
-          step="1"
-          min="0"
+          type="text"
+          inputMode="decimal"
+          enterKeyHint="next"
           value={overall}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOverall(e.target.value)}
           placeholder="e.g., 2000"
@@ -66,13 +66,13 @@ export default function BudgetForm({ isOpen, onClose, onSubmit, initialData }: {
               <div key={cat.id} className="flex items-center gap-2">
                 <span className="text-base">{cat.icon}</span>
                 <input
-                  type="number"
-                  step="1"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
+                  enterKeyHint="done"
                   value={categories[cat.id] || ''}
                   onChange={(e) => updateCategory(cat.id, e.target.value)}
                   placeholder={cat.label}
-                  className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-text-primary placeholder-text-tertiary focus:border-accent-primary/50 focus:ring-1 focus:ring-accent-primary/20 transition-all"
+                  className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder-white/30 focus:border-[#2D8CFF]/50 focus:ring-1 focus:ring-[#2D8CFF]/20 transition-all focus:outline-none"
                 />
               </div>
             ))}

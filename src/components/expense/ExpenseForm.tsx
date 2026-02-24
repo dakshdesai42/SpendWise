@@ -210,14 +210,14 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
                   ref={amountRef}
                   type="text"
                   inputMode="decimal"
-                  value={amount}
+                  enterKeyHint="next"
+                  value={isAmountFocused ? amount : ''}
                   onChange={handleAmountChange}
                   onFocus={() => setIsAmountFocused(true)}
                   onBlur={() => setIsAmountFocused(false)}
-                  aria-label="Amount"
-                  className="absolute inset-0 opacity-0 w-full h-full cursor-text"
-                />
-              </div>
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-text"
+                  placeholder="0"
+                /></div>
             </div>
           </div>
         </div>
