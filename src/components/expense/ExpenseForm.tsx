@@ -1,13 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { HiXMark } from 'react-icons/hi2';
 import Modal from '../ui/Modal';
-import Input from '../ui/Input';
-import Button from '../ui/Button';
-import { CATEGORIES, FREQUENCIES, CURRENCY_MAP } from '../../utils/constants';
+import { CATEGORIES, CURRENCY_MAP } from '../../utils/constants';
 import { useCurrency } from '../../context/CurrencyContext';
-import { formatCurrency } from '../../utils/formatters';
 import { Expense } from '../../types/models';
 import clsx from 'clsx';
 import { parseLocalDate } from '../../utils/date';
@@ -167,38 +163,24 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose}>
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-6 pt-2">
         {/* Top bar */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold tracking-tight text-text-primary">
+        <div className="flex items-center justify-center relative pb-2">
+          <h2 className="text-[17px] font-semibold tracking-tight text-white">
             {isEditing ? 'Edit Expense' : 'New Expense'}
           </h2>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="h-9 w-9 rounded-full border border-white/[0.08] bg-white/[0.06] text-text-secondary hover:text-text-primary hover:bg-white/[0.1] transition-colors flex items-center justify-center"
-            aria-label="Close add expense form"
-          >
-            <HiXMark className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Hero amount */}
         <div
-          className="relative rounded-[24px] md:rounded-[28px] border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-white/[0.01] px-5 py-8 md:py-10 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.02)] overflow-hidden cursor-text group transition-colors"
+          className="relative pt-6 pb-8 cursor-text group"
           onClick={() => amountRef.current?.focus()}
         >
-          {/* Subtle glow accent behind the amount */}
-          <div className="absolute inset-0 pointer-events-none transition-opacity duration-500 opacity-60 group-focus-within:opacity-100">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-accent-primary/[0.07] rounded-full blur-3xl" />
-          </div>
-
-          <div className="relative text-center space-y-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-tertiary">Amount</p>
+          <div className="relative text-center">
 
             <div className="flex items-center justify-center">
               <div className="relative flex items-center justify-center max-w-[90vw] overflow-hidden">
-                <span className="text-4xl md:text-5xl font-light leading-none text-text-secondary select-none mr-1.5 opacity-80 mt-1">
+                <span className="text-[2.75rem] md:text-6xl font-normal leading-none text-white select-none mr-3">
                   {currencySymbol}
                 </span>
 
@@ -206,19 +188,19 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
                 <div className="flex items-center">
                   <span
                     className={clsx(
-                      "text-6xl md:text-[5rem] font-thin leading-none tracking-tight transition-colors duration-200",
-                      amount ? "text-text-primary" : "text-text-tertiary/40"
+                      "text-[2.75rem] md:text-6xl font-normal leading-none tracking-tight transition-colors duration-200",
+                      amount ? "text-white" : "text-white/40"
                     )}
                   >
                     {displayAmount || '0.00'}
                   </span>
 
-                  {/* Blinking Cursor */}
+                  {/* Blinking Blue Cursor */}
                   {isAmountFocused && (
                     <motion.div
                       animate={{ opacity: [1, 0, 1] }}
                       transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-                      className="w-1 h-14 md:h-16 bg-accent-primary ml-1.5 rounded-full"
+                      className="w-[2.5px] h-11 md:h-12 bg-[#2D8CFF] ml-1"
                     />
                   )}
                 </div>
@@ -237,140 +219,111 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
                 />
               </div>
             </div>
-
-            <AnimatePresence>
-              {numericAmount > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  className="flex justify-center mt-3"
-                >
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-1.5 rounded-full border border-white/[0.08] bg-black/20 text-text-secondary shadow-sm backdrop-blur-md">
-                    ≈ {formatCurrency(homeAmount, homeCurrency)}
-                  </span>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         </div>
 
-        {/* Category — recency sorted */}
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-text-secondary">Category</label>
-          <div className="grid grid-cols-4 gap-2">
+        {/* Category — horizontal scroll pills */}
+        <div className="space-y-4 pb-2">
+          <div className="flex flex-wrap gap-2.5">
             {sortedCats.map((cat) => (
-              <motion.button
+              <button
                 key={cat.id}
                 type="button"
-                whileTap={{ scale: 0.92 }}
                 onClick={() => { setCategory(cat.id); hapticLight(); }}
                 className={clsx(
-                  'flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all duration-150',
+                  'flex items-center gap-2 px-3.5 py-2 rounded-full border transition-colors shrink-0',
                   category === cat.id
-                    ? 'border-accent-primary/50 bg-accent-primary/15'
-                    : 'border-white/[0.06] bg-white/[0.02] active:bg-white/[0.08]'
+                    ? 'border-[#2D8CFF] bg-[#2D8CFF]/15'
+                    : 'border-white/[0.08] bg-[#18181A] hover:bg-[#202020] text-white/70'
                 )}
               >
-                <span className="text-xl">{cat.icon}</span>
+                <span className="text-[15px]">{cat.icon}</span>
                 <span
                   className={clsx(
-                    'text-[10px] font-medium leading-tight text-center',
-                    category === cat.id ? 'text-accent-primary' : 'text-text-secondary'
+                    'text-[13px] font-medium',
+                    category === cat.id ? 'text-[#2D8CFF]' : 'text-white'
                   )}
                 >
                   {cat.label}
                 </span>
-              </motion.button>
+              </button>
             ))}
           </div>
         </div>
 
         {/* Note */}
-        <Input
-          label="Note (optional)"
-          placeholder="What was this for?"
-          value={note}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNote(e.target.value)}
-        />
+        <div className="space-y-2">
+          <label className="block text-[15px] font-medium text-white">Note</label>
+          <input
+            type="text"
+            placeholder="What was this for? (Optional)"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="w-full bg-[#18181A] text-[15px] text-white border border-white/[0.06] rounded-xl px-4 py-3.5 placeholder:text-white/40 focus:outline-none focus:border-white/[0.12] transition-colors"
+          />
+        </div>
 
-        {/* Date */}
-        <Input
-          label="Date"
-          type="date"
-          value={date}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
-        />
+        {/* Action Row: Date & Recurring */}
+        <div className="flex gap-3">
+          {/* Date Picker Button Capsule */}
+          <div className="relative flex-1">
+            <div className="w-full bg-[#18181A] border border-white/[0.06] rounded-[14px] px-4 py-3 flex items-center justify-between pointer-events-none">
+              <span className="text-[15px] text-white whitespace-nowrap">
+                <span className="text-white/50 mr-1">Date:</span>
+                {format(parseLocalDate(date), 'dd MMM yyyy')}
+              </span>
+              <svg className="w-[18px] h-[18px] text-white/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </div>
+            {/* Real hidden date input stacked correctly */}
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+          </div>
 
-        {/* Recurring toggle — new expenses only */}
-        {!isEditing && (
-          <div className="space-y-3">
+          {/* Recurring Toggle Capsule */}
+          {!isEditing && (
             <button
               type="button"
               onClick={() => { setIsRecurring((v) => !v); hapticLight(); }}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-white/[0.08] bg-white/[0.03] active:bg-white/[0.06] transition-colors"
+              className="flex-1 bg-[#18181A] border border-white/[0.06] rounded-[14px] px-4 py-3 flex items-center justify-between active:bg-[#202022] transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <span className="text-lg">🔁</span>
-                <div className="text-left">
-                  <p className="text-sm font-medium text-text-primary">Recurring expense</p>
-                  <p className="text-xs text-text-tertiary">Repeats automatically</p>
-                </div>
-              </div>
+              <span className="text-[14px] text-white/50 whitespace-nowrap mr-2">Recurring expense</span>
               {/* iOS-style toggle */}
               <div
-                className={`w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${isRecurring ? 'bg-accent-primary' : 'bg-white/[0.12]'
-                  }`}
+                className={clsx(
+                  "w-[34px] h-[20px] rounded-full transition-colors duration-200 shrink-0 flex items-center px-[2px]",
+                  isRecurring ? 'bg-white' : 'bg-white/[0.15]'
+                )}
               >
-                <motion.div
-                  layout
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  className="w-5 h-5 rounded-full bg-white mt-0.5 shadow"
-                  style={{ marginLeft: isRecurring ? '22px' : '2px' }}
+                <div
+                  className={clsx(
+                    "w-4 h-4 rounded-full transition-transform duration-200 shadow-sm",
+                    isRecurring ? 'bg-black translate-x-[14px]' : 'bg-white translate-x-0'
+                  )}
                 />
               </div>
             </button>
-
-            <AnimatePresence>
-              {isRecurring && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="grid grid-cols-4 gap-2 overflow-hidden"
-                >
-                  {FREQUENCIES.map((f) => (
-                    <button
-                      key={f.id}
-                      type="button"
-                      onClick={() => setFrequency(f.id)}
-                      className={clsx(
-                        'py-2 px-1 rounded-xl border text-xs font-medium transition-colors',
-                        frequency === f.id
-                          ? 'border-accent-primary/50 bg-accent-primary/15 text-accent-primary'
-                          : 'border-white/[0.06] bg-white/[0.02] text-text-secondary'
-                      )}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Submit */}
-        <Button
-          type="submit"
-          className="w-full"
-          size="lg"
-          loading={loading}
-          disabled={!amount || !category || numericAmount <= 0}
-        >
-          {isEditing ? 'Save Changes' : 'Add Expense'}
-        </Button>
+        <div className="pt-4 pb-2">
+          <button
+            type="submit"
+            disabled={!amount || !category || numericAmount <= 0 || loading}
+            className="w-full bg-[#2D8CFF] hover:bg-[#247BE0] disabled:bg-[#2D8CFF]/50 disabled:cursor-not-allowed text-white text-[17px] font-semibold py-[14px] rounded-full transition-all duration-200 shadow-[0_4px_24px_-4px_rgba(45,140,255,0.4)]"
+          >
+            {isEditing ? 'Save Changes' : 'Add Expense'}
+          </button>
+        </div>
       </form>
     </Modal>
   );
