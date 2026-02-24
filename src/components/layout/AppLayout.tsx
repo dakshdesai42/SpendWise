@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
@@ -66,7 +66,10 @@ function Layout() {
     startTs: 0,
   });
   const swipeCooldownUntilRef = useRef(0);
+  const manualDirectionRef = useRef<number | null>(null);
+  const previousPathRef = useRef(location.pathname);
   const currentTabIndex = useMemo(() => findTabIndex(location.pathname), [location.pathname]);
+  const [pageDirection, setPageDirection] = useState(0);
 
   useAutoBankSync(user?.uid, demoMode);
 
@@ -83,6 +86,22 @@ function Layout() {
       window.removeEventListener('spendwise-native-add-expense', handleNativeAddExpense);
     };
   }, [handleAddExpense]);
+
+  useEffect(() => {
+    const previousTabIndex = findTabIndex(previousPathRef.current);
+    const nextTabIndex = findTabIndex(location.pathname);
+
+    if (manualDirectionRef.current !== null) {
+      setPageDirection(manualDirectionRef.current);
+      manualDirectionRef.current = null;
+    } else if (previousTabIndex >= 0 && nextTabIndex >= 0 && previousTabIndex !== nextTabIndex) {
+      setPageDirection(nextTabIndex > previousTabIndex ? 1 : -1);
+    } else {
+      setPageDirection(0);
+    }
+
+    previousPathRef.current = location.pathname;
+  }, [location.pathname]);
 
   function handleTouchStart(event: React.TouchEvent<HTMLElement>) {
     if (currentTabIndex < 0) return;
@@ -141,6 +160,7 @@ function Layout() {
     if (nextIndex < 0 || nextIndex >= TAB_ROUTES.length) return;
 
     swipeCooldownUntilRef.current = Date.now() + SWIPE_COOLDOWN_MS;
+    manualDirectionRef.current = direction;
     hapticLight();
     navigate(TAB_ROUTES[nextIndex]);
   }
@@ -172,9 +192,24 @@ function Layout() {
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.div
                 key={location.pathname}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } }}
-                exit={{ opacity: 0, y: -10, transition: { duration: 0.2, ease: 'easeIn' } }}
+                custom={pageDirection}
+                initial={(direction) => ({
+                  opacity: 0,
+                  x: direction === 0 ? 0 : direction > 0 ? 44 : -44,
+                  scale: 0.997,
+                })}
+                animate={{
+                  opacity: 1,
+                  x: 0,
+                  scale: 1,
+                  transition: { duration: 0.28, ease: [0.22, 0.8, 0.24, 1] },
+                }}
+                exit={(direction) => ({
+                  opacity: 0,
+                  x: direction === 0 ? 0 : direction > 0 ? -28 : 28,
+                  scale: 0.997,
+                  transition: { duration: 0.2, ease: 'easeInOut' },
+                })}
                 className="w-full"
               >
                 <Outlet />

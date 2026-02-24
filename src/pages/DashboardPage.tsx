@@ -287,6 +287,14 @@ Upcoming 30 days: ${formatCurrency(upcoming30Total, hostCurrency)}`;
     { id: 'category', label: 'Category' },
     { id: 'budget', label: 'Budget' },
   ];
+  const trendChartKey = useMemo(
+    () => `trend-${currentMonth}-${trendData.length}-${trendData.map((d) => d.total).join(',')}`,
+    [currentMonth, trendData]
+  );
+  const categoryChartKey = useMemo(
+    () => `category-${currentMonth}-${Object.values(summary?.categoryTotals || {}).join(',')}`,
+    [currentMonth, summary?.categoryTotals]
+  );
   if (loading && !loadingTimedOut) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
@@ -452,6 +460,7 @@ Upcoming 30 days: ${formatCurrency(upcoming30Total, hostCurrency)}`;
               {activeInsight === 'category' && (
                 <Suspense fallback={<InsightLoadingState />}>
                   <SpendingDonut
+                    key={categoryChartKey}
                     categoryTotals={summary?.categoryTotals || {}}
                     total={totalSpent}
                   />
@@ -467,7 +476,7 @@ Upcoming 30 days: ${formatCurrency(upcoming30Total, hostCurrency)}`;
               )}
               {activeInsight === 'trend' && (
                 <Suspense fallback={<InsightLoadingState />}>
-                  <MonthlyTrend data={trendData} />
+                  <MonthlyTrend key={trendChartKey} data={trendData} />
                 </Suspense>
               )}
             </GlassCard>

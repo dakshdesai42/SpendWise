@@ -88,6 +88,16 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
   // When editing, seed from initialData; when adding (fresh open), keep previous state
   const prevIsOpen = useRef(false);
   useEffect(() => {
+    const root = document.documentElement;
+    if (isOpen) root.classList.add('expense-flow-open');
+    else root.classList.remove('expense-flow-open');
+
+    return () => {
+      root.classList.remove('expense-flow-open');
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
     if (isOpen && !prevIsOpen.current) {
       if (initialData) {
         // Editing: always seed from data
