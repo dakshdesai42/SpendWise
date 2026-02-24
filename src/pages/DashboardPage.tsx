@@ -1,5 +1,5 @@
-import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { lazy, Suspense, useState, useEffect, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useFAB } from '../context/FABContext';
 import {
   addDays,
@@ -19,6 +19,7 @@ import { useUpcomingBills } from '../hooks/useUpcomingBills';
 import { useAddExpense } from '../hooks/useExpenses';
 import { useAddGoal, useApplyUnderspendToGoals } from '../hooks/useGoals';
 import { useAutoPostRecurringForMonth } from '../hooks/useRecurring';
+import { markOnboardingComplete } from '../services/auth';
 import { CATEGORY_MAP } from '../utils/constants';
 import Header from '../components/layout/Header';
 import GlassCard from '../components/ui/GlassCard';
@@ -28,6 +29,7 @@ import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import ExpenseForm from '../components/expense/ExpenseForm';
+import OnboardingModal from '../components/onboarding/OnboardingModal';
 import toast from 'react-hot-toast';
 import { parseLocalDate } from '../utils/date';
 
@@ -52,11 +54,12 @@ function InsightLoadingState() {
 }
 
 export default function DashboardPage() {
-  const { user, profile, demoMode } = useAuth();
+  const { user, profile, demoMode, refreshProfile } = useAuth();
   const { hostCurrency, homeCurrency } = useCurrency();
   const { setFABAction } = useFAB();
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [activeInsight, setActiveInsight] = useState('trend');
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [goalTitle, setGoalTitle] = useState('');
@@ -67,6 +70,25 @@ export default function DashboardPage() {
   const [retryingData, setRetryingData] = useState(false);
   const [showDeferredSections, setShowDeferredSections] = useState(false);
   const currentMonth = getCurrentMonth();
+
+  // Show onboarding for first-time users
+  useEffect(() => {
+    if (profile && !profile.hasSeenOnboarding && !demoMode) {
+      setShowOnboarding(true);
+    }
+  }, [profile, demoMode]);
+
+  const handleOnboardingComplete = useCallback(async () => {
+    setShowOnboarding(false);
+    if (user?.uid && !demoMode) {
+      try {
+        await markOnboardingComplete(user.uid);
+        await refreshProfile();
+      } catch {
+        // Non-blocking — onboarding still dismissed locally
+      }
+    }
+  }, [user?.uid, demoMode, refreshProfile]);
 
   const {
     recentExpenses, summary, budget, goals,
@@ -140,7 +162,7 @@ export default function DashboardPage() {
     if (loading) return;
     const timer = window.setTimeout(() => {
       setShowDeferredSections(true);
-    }, 120);
+    }, 50);
     return () => window.clearTimeout(timer);
   }, [loading, user?.uid, currentMonth, demoMode]);
 
@@ -599,6 +621,12 @@ Upcoming 30 days: ${formatCurrency(upcoming30Total, hostCurrency)}`;
             </Button>
           </form>
         </Modal>
+
+        <AnimatePresence>
+          {showOnboarding && (
+            <OnboardingModal onComplete={handleOnboardingComplete} />
+          )}
+        </AnimatePresence>
       </div>
     </PullToRefresh>
   );

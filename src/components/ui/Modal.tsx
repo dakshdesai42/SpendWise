@@ -93,22 +93,47 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
     }
 
     const viewport = window.visualViewport;
-    if (!viewport) return;
 
-    const updateInset = () => {
-      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
-      setKeyboardInset(Math.round(inset));
+    // Primary path: visualViewport API (supported on iOS 13+, all modern browsers)
+    if (viewport) {
+      const updateInset = () => {
+        const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+        setKeyboardInset(Math.round(inset));
+      };
+
+      updateInset();
+      viewport.addEventListener('resize', updateInset);
+      viewport.addEventListener('scroll', updateInset);
+      window.addEventListener('orientationchange', updateInset);
+
+      return () => {
+        viewport.removeEventListener('resize', updateInset);
+        viewport.removeEventListener('scroll', updateInset);
+        window.removeEventListener('orientationchange', updateInset);
+      };
+    }
+
+    // Fallback: estimate keyboard height from focus events (older WebViews)
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        setKeyboardInset(Math.round(window.innerHeight * 0.4));
+      }
+    };
+    const handleFocusOut = () => {
+      setKeyboardInset(0);
     };
 
-    updateInset();
-    viewport.addEventListener('resize', updateInset);
-    viewport.addEventListener('scroll', updateInset);
-    window.addEventListener('orientationchange', updateInset);
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
 
     return () => {
-      viewport.removeEventListener('resize', updateInset);
-      viewport.removeEventListener('scroll', updateInset);
-      window.removeEventListener('orientationchange', updateInset);
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
     };
   }, [isOpen]);
 
@@ -179,7 +204,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
               maxHeight: 'calc(100dvh - var(--safe-area-top) - 0.35rem)',
             }}
             initial={{ y: '100%', opacity: 0 }}
-            animate={{ y: 0, opacity: 1, transition: { type: 'spring', stiffness: 340, damping: 34, mass: 0.9 } }}
+            animate={{ y: 0, opacity: 1, transition: { type: 'spring', stiffness: 400, damping: 38, mass: 0.8 } }}
             exit={{ y: '100%', opacity: 0, transition: { duration: 0.22, ease: 'easeIn' } }}
             drag={keyboardInset > 0 ? false : 'y'}
             dragControls={dragControls}

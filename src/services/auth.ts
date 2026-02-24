@@ -48,6 +48,7 @@ export async function signUp(email: string, password: string, displayName: strin
     longestStreak: 0,
     lastLogDate: null,
     achievements: [],
+    hasSeenOnboarding: false,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -102,4 +103,8 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     return { id: userDoc.id, uid: userDoc.id, ...userDoc.data() } as UserProfile;
   }
   return null;
+}
+
+export async function markOnboardingComplete(uid: string): Promise<void> {
+  await setDoc(doc(getDb(), 'users', uid), { hasSeenOnboarding: true }, { merge: true });
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HiPencil, HiTrash } from 'react-icons/hi2';
@@ -9,7 +9,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { useLongPress } from '../../hooks/useLongPress';
 import { Expense } from '../../types/models';
 
-export default function ExpenseCard({ expense, onEdit, onDelete }: { expense: Expense; onEdit?: (expense: Expense) => void; onDelete?: (expense: Expense) => void }) {
+export default memo(function ExpenseCard({ expense, onEdit, onDelete }: { expense: Expense; onEdit?: (expense: Expense) => void; onDelete?: (expense: Expense) => void }) {
   const { hostCurrency } = useCurrency();
   const cat = CATEGORY_MAP[expense.category as keyof typeof CATEGORY_MAP] || CATEGORY_MAP.other;
 
@@ -38,7 +38,6 @@ export default function ExpenseCard({ expense, onEdit, onDelete }: { expense: Ex
 
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -100 }}
@@ -137,7 +136,7 @@ export default function ExpenseCard({ expense, onEdit, onDelete }: { expense: Ex
       )}
     </motion.div>
   );
-}
+});
 
 function CardContent({ cat, expense, hostCurrency }: { cat: any, expense: Expense, hostCurrency: string }) {
   return (

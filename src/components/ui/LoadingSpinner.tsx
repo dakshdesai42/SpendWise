@@ -25,7 +25,7 @@ export function FullPageLoader({
   message?: string;
 }) {
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center gap-4">
+    <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center gap-4" style={{ paddingTop: 'var(--safe-area-top)', paddingBottom: 'var(--safe-area-bottom)' }}>
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}

@@ -33,9 +33,10 @@ export default function GlassCard({
   return (
     <motion.div
       className={cardClassName}
-      initial={{ opacity: 0, scale: 0.96, y: 12 }}
+      initial={{ opacity: 0, scale: 0.98, y: 8 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ type: 'spring', bounce: 0, duration: 0.5 }}
+      transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
+      style={{ willChange: 'transform, opacity' }}
       whileHover={hover ? { scale: 1.015, transition: { type: 'spring', bounce: 0, duration: 0.4 } } : undefined}
       whileTap={hover ? { scale: 0.98, transition: { type: 'spring', bounce: 0, duration: 0.4 } } : undefined}
       {...props}

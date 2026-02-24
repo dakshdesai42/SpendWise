@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { hapticWarning, hapticHeavy } from '../../utils/haptics';
 
 /**
  * Native-feeling iOS-style action sheet for confirmations.
@@ -32,8 +33,22 @@ export default function ConfirmSheet({
   danger?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
+  const [confirmEnabled, setConfirmEnabled] = useState(false);
+
+  // Haptic warning on open + delay before enabling confirm button
+  useEffect(() => {
+    if (!isOpen) {
+      setConfirmEnabled(false);
+      return;
+    }
+    hapticWarning();
+    const timer = window.setTimeout(() => setConfirmEnabled(true), 400);
+    return () => window.clearTimeout(timer);
+  }, [isOpen]);
 
   async function handleConfirm() {
+    if (!confirmEnabled) return;
+    hapticHeavy();
     setBusy(true);
     try {
       await onConfirm();
@@ -63,8 +78,8 @@ export default function ConfirmSheet({
 
           {/* Sheet */}
           <motion.div
-            className="relative w-full max-w-sm mb-4 rounded-2xl overflow-hidden"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+            className="relative w-full max-w-sm rounded-2xl overflow-hidden"
+            style={{ marginBottom: 'max(1rem, env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}
             initial={{ y: 60, opacity: 0, scale: 0.96 }}
             animate={{ y: 0, opacity: 1, scale: 1, transition: { type: 'spring', stiffness: 380, damping: 32 } }}
             exit={{ y: 40, opacity: 0, scale: 0.96, transition: { duration: 0.18 } }}
@@ -83,7 +98,7 @@ export default function ConfirmSheet({
             <div className="flex flex-col gap-2">
               <button
                 onClick={handleConfirm}
-                disabled={busy}
+                disabled={busy || !confirmEnabled}
                 className={danger
                   ? "w-full py-4 rounded-[14px] text-[17px] font-semibold transition-all active:scale-[0.98] disabled:opacity-50 bg-[#1C1C1E]/80 backdrop-blur-[40px] border border-white/[0.04] text-[#FF453A]"
                   : "w-full py-4 rounded-[14px] text-[17px] font-semibold transition-all active:scale-[0.98] disabled:opacity-50 bg-[#1C1C1E]/80 backdrop-blur-[40px] border border-white/[0.04] text-[#2D8CFF]"

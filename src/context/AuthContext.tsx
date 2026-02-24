@@ -1,9 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, isFirebaseConfigured } from '../services/firebase';
 import type { Auth } from 'firebase/auth';
 import { getUserProfile } from '../services/auth';
 import { UserProfile } from '../types/models';
+import { Capacitor } from '@capacitor/core';
+import { SplashScreen } from '@capacitor/splash-screen';
 
 interface AuthContextType {
   user: User | null;
@@ -42,12 +44,27 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs = AUTH_PROFILE_TIME
   });
 }
 
+function hideSplash() {
+  if (Capacitor.isNativePlatform()) {
+    SplashScreen.hide({ fadeOutDuration: 200 }).catch(() => {});
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [demoMode, setDemoMode] = useState(false);
+  const splashHiddenRef = useRef(false);
+
+  // Hide splash once auth state resolves (exactly once)
+  useEffect(() => {
+    if (!loading && !splashHiddenRef.current) {
+      splashHiddenRef.current = true;
+      hideSplash();
+    }
+  }, [loading]);
 
   useEffect(() => {
     if (!isFirebaseConfigured) {

@@ -7,19 +7,19 @@ export const pageVariants = {
 export const pageTransition = {
   type: 'tween',
   ease: 'easeOut',
-  duration: 0.28,
+  duration: 0.22,
 } as const;
 
 export const containerVariants = {
   initial: {},
   animate: {
-    transition: { staggerChildren: 0.04 },
+    transition: { staggerChildren: 0.03 },
   },
 } as const;
 
 export const itemVariants = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.24, ease: 'easeOut' } },
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
 } as const;
 
 export const fadeIn = {

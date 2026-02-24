@@ -44,6 +44,7 @@ export interface UserProfile {
     homeCurrency?: string;
     hostCurrency?: string;
     achievements?: string[];
+    hasSeenOnboarding?: boolean;
 }
 
 export interface RecurringBill {

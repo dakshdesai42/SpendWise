@@ -85,7 +85,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4">
+    <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4" style={{ paddingTop: 'var(--safe-area-top)', paddingBottom: 'max(1rem, var(--safe-area-bottom))' }}>
       {/* Background gradient orbs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent-primary/10 rounded-full blur-3xl" />

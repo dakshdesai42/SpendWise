@@ -196,20 +196,20 @@ function Layout() {
                 custom={pageDirection}
                 initial={(direction) => ({
                   opacity: 0,
-                  x: direction === 0 ? 0 : direction > 0 ? 44 : -44,
+                  x: direction === 0 ? 0 : direction > 0 ? 32 : -32,
                   scale: 0.997,
                 })}
                 animate={{
                   opacity: 1,
                   x: 0,
                   scale: 1,
-                  transition: { duration: 0.28, ease: [0.22, 0.8, 0.24, 1] },
+                  transition: { duration: 0.22, ease: [0.22, 0.8, 0.24, 1] },
                 }}
                 exit={(direction) => ({
                   opacity: 0,
-                  x: direction === 0 ? 0 : direction > 0 ? -28 : 28,
+                  x: direction === 0 ? 0 : direction > 0 ? -20 : 20,
                   scale: 0.997,
-                  transition: { duration: 0.2, ease: 'easeInOut' },
+                  transition: { duration: 0.15, ease: 'easeInOut' },
                 })}
                 className="w-full will-change-transform"
                 style={{ transform: 'translateZ(0)' }}
