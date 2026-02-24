@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { HiXMark } from 'react-icons/hi2';
@@ -51,6 +51,7 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
 
   // Persistent form state — survives accidental closes
   const [amount, setAmount] = useState('');
+  const [isAmountFocused, setIsAmountFocused] = useState(false);
   const [category, setCategory] = useState('');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -60,6 +61,33 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
   const [sortedCats, setSortedCats] = useState(getSortedCategories);
 
   const amountRef = useRef<HTMLInputElement>(null);
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value;
+    val = val.replace(/,/g, '.'); // allow comma for european locales
+    val = val.replace(/[^\d.]/g, '');
+    const parts = val.split('.');
+    if (parts.length > 2) {
+      val = parts[0] + '.' + parts.slice(1).join('');
+    }
+    if (parts[1]?.length > 2) {
+      val = `${parts[0]}.${parts[1].slice(0, 2)}`;
+    }
+    if (val !== amount) {
+      setAmount(val);
+      if (val) hapticLight();
+    }
+  };
+
+  const displayAmount = useMemo(() => {
+    if (!amount) return '';
+    const parts = amount.split('.');
+    const intPart = parts[0] || '0';
+    const num = parseInt(intPart, 10);
+    const formattedInt = isNaN(num) ? '0' : new Intl.NumberFormat('en-US').format(num);
+    const decPart = parts.length > 1 ? `.${parts[1].slice(0, 2)}` : '';
+    return formattedInt + decPart;
+  }, [amount]);
 
   // When editing, seed from initialData; when adding (fresh open), keep previous state
   const prevIsOpen = useRef(false);
@@ -92,7 +120,6 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
   const numericAmount = parseFloat(amount) || 0;
   const homeAmount = convertToHome(numericAmount);
   const rate = getRate(hostCurrency, homeCurrency);
-  const amountWidthCh = Math.min(Math.max((amount || '0.00').length + 1, 5), 10);
 
   function handleClose() {
     onClose();
@@ -157,41 +184,70 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
         </div>
 
         {/* Hero amount */}
-        <div className="relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-white/[0.01] px-5 py-6 md:py-8 overflow-hidden">
+        <div
+          className="relative rounded-[24px] md:rounded-[28px] border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-white/[0.01] px-5 py-8 md:py-10 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.02)] overflow-hidden cursor-text group transition-colors"
+          onClick={() => amountRef.current?.focus()}
+        >
           {/* Subtle glow accent behind the amount */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-accent-primary/[0.06] rounded-full blur-3xl" />
+          <div className="absolute inset-0 pointer-events-none transition-opacity duration-500 opacity-60 group-focus-within:opacity-100">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-accent-primary/[0.07] rounded-full blur-3xl" />
           </div>
 
-          <div className="relative text-center space-y-3">
-            <p className="text-xs font-medium uppercase tracking-widest text-text-tertiary">Amount</p>
-            <div className="flex items-baseline justify-center gap-1">
-              <span className="text-4xl md:text-5xl font-extralight leading-none text-text-secondary select-none">
-                {currencySymbol}
-              </span>
-              <input
-                ref={amountRef}
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                aria-label="Amount"
-                placeholder="0.00"
-                style={{ width: `${amountWidthCh}ch` }}
-                className="max-w-[60vw] bg-transparent border-none p-0 text-left text-5xl md:text-6xl font-light leading-none tracking-tight text-text-primary placeholder:text-text-tertiary/50 focus:outline-none [appearance:textfield]"
-              />
+          <div className="relative text-center space-y-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-tertiary">Amount</p>
+
+            <div className="flex items-center justify-center">
+              <div className="relative flex items-center justify-center max-w-[90vw] overflow-hidden">
+                <span className="text-4xl md:text-5xl font-light leading-none text-text-secondary select-none mr-1.5 opacity-80 mt-1">
+                  {currencySymbol}
+                </span>
+
+                {/* Visual Display */}
+                <div className="flex items-center">
+                  <span
+                    className={clsx(
+                      "text-6xl md:text-[5rem] font-thin leading-none tracking-tight transition-colors duration-200",
+                      amount ? "text-text-primary" : "text-text-tertiary/40"
+                    )}
+                  >
+                    {displayAmount || '0.00'}
+                  </span>
+
+                  {/* Blinking Cursor */}
+                  {isAmountFocused && (
+                    <motion.div
+                      animate={{ opacity: [1, 0, 1] }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                      className="w-1 h-14 md:h-16 bg-accent-primary ml-1.5 rounded-full"
+                    />
+                  )}
+                </div>
+
+                {/* Hidden Input Layer */}
+                <input
+                  ref={amountRef}
+                  type="text"
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={handleAmountChange}
+                  onFocus={() => setIsAmountFocused(true)}
+                  onBlur={() => setIsAmountFocused(false)}
+                  aria-label="Amount"
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-text"
+                />
+              </div>
             </div>
+
             <AnimatePresence>
               {numericAmount > 0 && (
                 <motion.div
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  className="flex justify-center"
+                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="flex justify-center mt-3"
                 >
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border border-white/[0.08] bg-white/[0.04] text-text-secondary">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium px-4 py-1.5 rounded-full border border-white/[0.08] bg-black/20 text-text-secondary shadow-sm backdrop-blur-md">
                     ≈ {formatCurrency(homeAmount, homeCurrency)}
                   </span>
                 </motion.div>

@@ -1,13 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  getRecurringExpenses,
   RECURRING_RULES_CHANGED_EVENT_NAME,
-  getUpcomingRecurringBills,
-  getUpcomingRecurringBillsForUser,
 } from '../services/recurring';
 import { BANK_SYNC_EVENT_NAME } from '../services/bankSync';
 import { DEMO_RECURRING } from '../utils/demoData';
 import { UpcomingBill } from '../types/models';
+import { computeUpcomingBillsFromRules, getUpcomingBillsForUser } from '../services/upcomingBills';
 
 /**
  * Fetches upcoming recurring bills for the next 30 days.
@@ -22,7 +20,7 @@ export function useUpcomingBills(userId: string | undefined, demoMode = false) {
   const fetchBills = useCallback(async () => {
     // Demo mode — no Firestore, just generate from sample data
     if (demoMode) {
-      setBills(getUpcomingRecurringBills(DEMO_RECURRING, new Date(), 30));
+      setBills(computeUpcomingBillsFromRules(DEMO_RECURRING, new Date(), 30));
       setLoading(false);
       return;
     }
@@ -37,18 +35,7 @@ export function useUpcomingBills(userId: string | undefined, demoMode = false) {
     // Force clean refresh so removed rules don't visually linger between fetches.
     setBills([]);
     try {
-      const rules = await getRecurringExpenses(userId, { serverOnly: true });
-      const active = rules.filter((r) => r.isActive !== false);
-
-      if (active.length === 0) {
-        if (mountedRef.current) {
-          setBills([]);
-          setLoading(false);
-        }
-        return;
-      }
-
-      const upcoming = await getUpcomingRecurringBillsForUser(userId, active, new Date(), 30);
+      const upcoming = await getUpcomingBillsForUser(userId, new Date(), 30);
       if (mountedRef.current) setBills(upcoming);
     } catch (err) {
       console.error('useUpcomingBills fetch error:', err);

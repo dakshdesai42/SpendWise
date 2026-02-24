@@ -26,8 +26,8 @@ import {
   getRecurringSkipKeysForMonth,
   updateMonthlySummary,
 } from './expenses';
-import { Expense, RecurringBill, UpcomingBill } from '../types/models';
-import { endOfDayLocal, formatDayKey, parseLocalDate, parseMonthKey, startOfDayLocal } from '../utils/date';
+import { Expense, RecurringBill } from '../types/models';
+import { endOfDayLocal, formatDayKey, parseLocalDate, parseMonthKey } from '../utils/date';
 
 function recurringRef(userId: string) {
   return collection(getDb(), 'users', userId, 'recurringExpenses');
@@ -370,83 +370,4 @@ export async function reactivateAllRecurringRules(userId: string): Promise<numbe
     }
   }
   return reactivated;
-}
-
-/**
- * Generate upcoming bill occurrences for a list of recurring rules.
- * Pure function — no Firestore calls. Works for both demo and real data.
- */
-export function getUpcomingRecurringBills(
-  recurring: RecurringBill[],
-  fromDate: Date | string = new Date(),
-  days = 30
-): UpcomingBill[] {
-  const start = startOfDayLocal(fromDate);
-  const end = addDays(start, days);
-  const upcoming: UpcomingBill[] = [];
-
-  for (const rec of recurring) {
-    if (!isRecurringRuleActive(rec.isActive)) continue;
-    if (!Number.isFinite(rec.amount) || rec.amount <= 0) continue;
-
-    const first = toSafeDate(rec.startDate);
-    if (!first) continue;
-
-    const frequency = normalizeFrequency(rec.frequency);
-    const anchorDay = first.getDate();
-    let cursor = jumpNear(first, start, frequency, anchorDay);
-
-    // Collect occurrences within [start, end]. Max 60 as safety.
-    for (let i = 0; i < 60 && cursor <= end; i++) {
-      if (cursor >= start) {
-        upcoming.push({
-          recurringId: rec.id,
-          dueDate: new Date(cursor),
-          amount: rec.amount,
-          category: rec.category,
-          note: rec.note,
-          frequency: rec.frequency,
-        });
-      }
-      cursor = stepOnce(cursor, frequency, anchorDay);
-    }
-  }
-
-  return upcoming.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
-}
-
-/**
- * Like getUpcomingRecurringBills, but also filters out skipped occurrences
- * for a real user. Makes one Firestore call per month in the range.
- */
-export async function getUpcomingRecurringBillsForUser(
-  userId: string,
-  recurring: RecurringBill[],
-  fromDate: Date | string = new Date(),
-  days = 30
-): Promise<UpcomingBill[]> {
-  const upcoming = getUpcomingRecurringBills(recurring, fromDate, days);
-  if (upcoming.length === 0) return upcoming;
-
-  // Collect the unique months covered by the upcoming bills
-  const months = new Set<string>();
-  for (const bill of upcoming) {
-    months.add(formatDayKey(bill.dueDate).slice(0, 7));
-  }
-
-  // Load skip keys for those months (swallow errors per month)
-  const allSkipped = new Set<string>();
-  for (const month of months) {
-    try {
-      const keys = await getRecurringSkipKeysForMonth(userId, month, { serverOnly: true });
-      for (const k of keys) allSkipped.add(k);
-    } catch { /* ignore — treat as no skips */ }
-  }
-
-  if (allSkipped.size === 0) return upcoming;
-
-  return upcoming.filter((bill) => {
-    if (!bill.recurringId) return true;
-    return !allSkipped.has(`${bill.recurringId}:${formatDayKey(bill.dueDate)}`);
-  });
 }
