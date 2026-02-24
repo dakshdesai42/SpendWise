@@ -24,6 +24,10 @@ android/.gradle/
 android/app/build/
 android/build/
 
+# Firebase Functions
+functions/lib
+functions/node_modules
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
