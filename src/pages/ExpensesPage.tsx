@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useFAB } from '../context/FABContext';
 import { format, addMonths, subMonths } from 'date-fns';
 import { HiPlus, HiChevronLeft, HiChevronRight, HiArrowUpTray, HiTrash, HiPause, HiPlay } from 'react-icons/hi2';
@@ -39,6 +40,8 @@ export default function ExpensesPage() {
   const { user, demoMode } = useAuth();
   const { hostCurrency } = useCurrency();
   const { setFABAction } = useFAB();
+  const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('transactions');
   const [month, setMonth] = useState(getCurrentMonth());
@@ -57,6 +60,14 @@ export default function ExpensesPage() {
     setFABAction(() => { setEditingExpense(null); setShowForm(true); });
     return () => setFABAction(null);
   }, []);
+
+  useEffect(() => {
+    const state = location.state as { openAddExpense?: boolean } | null;
+    if (!state?.openAddExpense) return;
+    setEditingExpense(null);
+    setShowForm(true);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
     if (!user) return;

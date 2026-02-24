@@ -23,6 +23,7 @@ import { CATEGORY_MAP } from '../utils/constants';
 import Header from '../components/layout/Header';
 import GlassCard from '../components/ui/GlassCard';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import PullToRefresh from '../components/ui/PullToRefresh';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
@@ -295,267 +296,269 @@ Upcoming 30 days: ${formatCurrency(upcoming30Total, hostCurrency)}`;
   }
 
   return (
-    <div>
+    <PullToRefresh onRefresh={handleRetryDataLoad}>
+      <div>
 
-      <Header onAddExpense={() => setShowExpenseForm(true)} />
+        <Header onAddExpense={() => setShowExpenseForm(true)} />
 
-      <motion.div
-        variants={containerVariants}
-        initial="initial"
-        animate="animate"
-        className="app-page-content space-y-12 md:space-y-14"
-      >
-        {(hasError || loadingTimedOut) && !demoMode && (
-          <motion.div variants={itemVariants} className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
-            <p className="text-sm text-warning">
-              Some data could not be loaded. Please check your connection and try again.
-            </p>
-            <div className="mt-3">
-              <Button size="sm" onClick={handleRetryDataLoad} loading={retryingData}>
-                Retry now
-              </Button>
-            </div>
-          </motion.div>
-        )}
-
-        {(demoMode || streak > 0 || (!loggedToday && !demoMode && recentExpenses.length > 0)) && (
-          <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-2.5">
-            {demoMode && (
-              <span className="text-xs px-2.5 py-1 rounded-full border border-accent-secondary/25 bg-accent-secondary/10 text-accent-secondary">
-                Demo mode enabled
-              </span>
-            )}
-            {streak > 0 && (
-              <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-orange-400/25 bg-orange-400/10 text-orange-300">
-                <HiFire className="w-3.5 h-3.5" />
-                {streak} day streak
-              </span>
-            )}
-            {!loggedToday && !demoMode && recentExpenses.length > 0 && (
-              <button
-                onClick={() => setShowExpenseForm(true)}
-                className="text-xs px-2.5 py-1 rounded-full border border-accent-primary/25 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/15 transition-colors"
-              >
-                Nothing logged today. Add expense
-              </button>
-            )}
-          </motion.div>
-        )}
-
-        {/* Stat Cards */}
-        <motion.div variants={itemVariants} className="space-y-4">
-          {/* Hero spend card — the one number that matters most */}
-          <GlassCard className="p-7 md:p-8">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#2D8CFF] mb-3">Spent This Month</p>
-                <p className="text-[3rem] md:text-[4rem] font-light tracking-tight text-white leading-none">
-                  {formatCurrency(totalSpent, hostCurrency)}
-                </p>
-                <p className="text-sm text-white/40 mt-3 font-medium">
-                  ≈ {formatCurrency(totalSpentHome, homeCurrency)} &middot; {summary?.transactionCount || 0} transactions
-                </p>
+        <motion.div
+          variants={containerVariants}
+          initial="initial"
+          animate="animate"
+          className="app-page-content space-y-12 md:space-y-14"
+        >
+          {(hasError || loadingTimedOut) && !demoMode && (
+            <motion.div variants={itemVariants} className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3">
+              <p className="text-sm text-warning">
+                Some data could not be loaded. Please check your connection and try again.
+              </p>
+              <div className="mt-3">
+                <Button size="sm" onClick={handleRetryDataLoad} loading={retryingData}>
+                  Retry now
+                </Button>
               </div>
+            </motion.div>
+          )}
 
-              {/* Budget status pill — the key answer */}
-              {budget ? (
-                <div className={`shrink-0 flex flex-col items-end gap-1.5`}>
-                  <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${budgetPercent > 100
-                    ? 'bg-danger/15 text-danger'
-                    : budgetPercent > 85
-                      ? 'bg-warning/15 text-warning'
-                      : 'bg-success/15 text-success'
-                    }`}>
-                    {budgetPercent > 100 ? '🔴 Over budget' : budgetPercent > 85 ? '⚠️ Watch it' : '✅ On track'}
-                  </span>
-                  <p className="text-xs text-text-tertiary text-right">
-                    {Math.round(budgetPercent)}% of {formatCurrency(budget.overall, hostCurrency)}
-                  </p>
-                </div>
-              ) : (
-                <span className="text-xs text-text-tertiary shrink-0 px-3 py-1.5 rounded-full border border-white/[0.08]">
-                  No budget set
+          {(demoMode || streak > 0 || (!loggedToday && !demoMode && recentExpenses.length > 0)) && (
+            <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-2.5">
+              {demoMode && (
+                <span className="text-xs px-2.5 py-1 rounded-full border border-accent-secondary/25 bg-accent-secondary/10 text-accent-secondary">
+                  Demo mode enabled
                 </span>
               )}
-            </div>
-
-            {/* Budget progress bar */}
-            {budget && (
-              <div className="mt-5">
-                <div className="h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
-                  <motion.div
-                    className={`h-full rounded-full ${budgetPercent > 100 ? 'bg-danger' : budgetPercent > 85 ? 'bg-warning' : 'bg-success'
-                      }`}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(budgetPercent, 100)}%` }}
-                    transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
-                  />
-                </div>
-              </div>
-            )}
-          </GlassCard>
-
-          {/* Secondary stats row */}
-          <div className="grid grid-cols-2 gap-4">
-            <GlassCard className="p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="p-2 rounded-lg bg-accent-secondary/15">
-                  <HiHomeIcon className="w-4 h-4 text-accent-secondary" />
-                </div>
-                <span className="text-xs text-text-secondary">Home Currency</span>
-              </div>
-              <p className="text-2xl font-semibold tracking-tight text-text-primary">
-                {formatCurrency(totalSpentHome, homeCurrency)}
-              </p>
-              <p className="text-[9px] text-text-tertiary mt-1">Based on rates at time of entry</p>
-            </GlassCard>
-
-            <GlassCard className="p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`p-2 rounded-lg ${burnRateLevel === 'high' ? 'bg-danger/15' : burnRateLevel === 'medium' ? 'bg-warning/15' : 'bg-success/15'}`}>
-                  {burnRateLevel === 'high'
-                    ? <HiArrowTrendingUp className="w-4 h-4 text-danger" />
-                    : <HiArrowTrendingDown className="w-4 h-4 text-success" />
-                  }
-                </div>
-                <span className="text-xs text-text-secondary">Burn Rate</span>
-              </div>
-              <p className="text-2xl font-semibold tracking-tight text-text-primary capitalize">{burnRateLevel}</p>
-              <p className="text-[10px] text-text-tertiary mt-0.5">{Math.round(elapsedPct)}% of month elapsed</p>
-            </GlassCard>
-          </div>
-        </motion.div>
-
-        {/* Insights */}
-        <motion.div variants={itemVariants}>
-          <GlassCard className="p-7 md:p-9">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 mb-7">
-              <h3 className="text-sm font-semibold text-text-primary">Insights</h3>
-              <div className="flex bg-[#18181A] rounded-full p-1 border border-white/[0.06]">
-                {insightTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveInsight(tab.id)}
-                    className={`px-4 py-1.5 text-[13px] font-medium rounded-full transition-colors ${activeInsight === tab.id
-                      ? 'bg-[#2D8CFF] text-white shadow-[0_2px_8px_rgba(45,140,255,0.4)]'
-                      : 'text-white/50 hover:text-white/80'
-                      }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {activeInsight === 'category' && (
-              <Suspense fallback={<InsightLoadingState />}>
-                <SpendingDonut
-                  categoryTotals={summary?.categoryTotals || {}}
-                  total={totalSpent}
-                />
-              </Suspense>
-            )}
-            {activeInsight === 'budget' && (
-              <Suspense fallback={<InsightLoadingState />}>
-                <BudgetOverview
-                  budget={budget}
-                  categoryTotals={summary?.categoryTotals || {}}
-                />
-              </Suspense>
-            )}
-            {activeInsight === 'trend' && (
-              <Suspense fallback={<InsightLoadingState />}>
-                <MonthlyTrend data={trendData} />
-              </Suspense>
-            )}
-          </GlassCard>
-        </motion.div>
-
-        <Suspense
-          fallback={(
-            <motion.div variants={itemVariants}>
-              <GlassCard className="p-7 md:p-8">
-                <div className="h-28 flex items-center justify-center">
-                  <LoadingSpinner size="md" />
-                </div>
-              </GlassCard>
+              {streak > 0 && (
+                <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-orange-400/25 bg-orange-400/10 text-orange-300">
+                  <HiFire className="w-3.5 h-3.5" />
+                  {streak} day streak
+                </span>
+              )}
+              {!loggedToday && !demoMode && recentExpenses.length > 0 && (
+                <button
+                  onClick={() => setShowExpenseForm(true)}
+                  className="text-xs px-2.5 py-1 rounded-full border border-accent-primary/25 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/15 transition-colors"
+                >
+                  Nothing logged today. Add expense
+                </button>
+              )}
             </motion.div>
           )}
-        >
-          {showDeferredSections ? (
-            <DashboardDeferredSections
-              hostCurrency={hostCurrency}
-              currentMonth={currentMonth}
-              summary={summary}
-              upcoming30Total={upcoming30Total}
-              upcomingBills={upcomingBills}
-              upcomingBillsLoading={upcomingBillsLoading}
-              upcoming7={upcoming7}
-              weeklyReview={weeklyReview}
-              goals={goals}
-              topCategoryLabel={topCategory.label}
-              totalSpent={totalSpent}
-              recentExpenses={recentExpenses}
-              onApplyUnderspend={handleApplyUnderspend}
-              onAddGoal={() => setShowGoalModal(true)}
-              onShareMonthlySummary={handleShareMonthlySummary}
-              onDownloadMonthlySummary={handleDownloadMonthlySummary}
-            />
-          ) : (
-            <motion.div variants={itemVariants}>
-              <GlassCard className="p-7 md:p-8">
-                <div className="h-28 flex items-center justify-center">
-                  <LoadingSpinner size="md" />
+
+          {/* Stat Cards */}
+          <motion.div variants={itemVariants} className="space-y-4">
+            {/* Hero spend card — the one number that matters most */}
+            <GlassCard className="p-7 md:p-8">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#2D8CFF] mb-3">Spent This Month</p>
+                  <p className="text-[3rem] md:text-[4rem] font-light tracking-tight text-white leading-none">
+                    {formatCurrency(totalSpent, hostCurrency)}
+                  </p>
+                  <p className="text-sm text-white/40 mt-3 font-medium">
+                    ≈ {formatCurrency(totalSpentHome, homeCurrency)} &middot; {summary?.transactionCount || 0} transactions
+                  </p>
                 </div>
+
+                {/* Budget status pill — the key answer */}
+                {budget ? (
+                  <div className={`shrink-0 flex flex-col items-end gap-1.5`}>
+                    <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${budgetPercent > 100
+                      ? 'bg-danger/15 text-danger'
+                      : budgetPercent > 85
+                        ? 'bg-warning/15 text-warning'
+                        : 'bg-success/15 text-success'
+                      }`}>
+                      {budgetPercent > 100 ? '🔴 Over budget' : budgetPercent > 85 ? '⚠️ Watch it' : '✅ On track'}
+                    </span>
+                    <p className="text-xs text-text-tertiary text-right">
+                      {Math.round(budgetPercent)}% of {formatCurrency(budget.overall, hostCurrency)}
+                    </p>
+                  </div>
+                ) : (
+                  <span className="text-xs text-text-tertiary shrink-0 px-3 py-1.5 rounded-full border border-white/[0.08]">
+                    No budget set
+                  </span>
+                )}
+              </div>
+
+              {/* Budget progress bar */}
+              {budget && (
+                <div className="mt-5">
+                  <div className="h-1.5 rounded-full bg-white/[0.08] overflow-hidden">
+                    <motion.div
+                      className={`h-full rounded-full ${budgetPercent > 100 ? 'bg-danger' : budgetPercent > 85 ? 'bg-warning' : 'bg-success'
+                        }`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(budgetPercent, 100)}%` }}
+                      transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
+                    />
+                  </div>
+                </div>
+              )}
+            </GlassCard>
+
+            {/* Secondary stats row */}
+            <div className="grid grid-cols-2 gap-4">
+              <GlassCard className="p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="p-2 rounded-lg bg-accent-secondary/15">
+                    <HiHomeIcon className="w-4 h-4 text-accent-secondary" />
+                  </div>
+                  <span className="text-xs text-text-secondary">Home Currency</span>
+                </div>
+                <p className="text-2xl font-semibold tracking-tight text-text-primary">
+                  {formatCurrency(totalSpentHome, homeCurrency)}
+                </p>
+                <p className="text-[9px] text-text-tertiary mt-1">Based on rates at time of entry</p>
               </GlassCard>
-            </motion.div>
+
+              <GlassCard className="p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`p-2 rounded-lg ${burnRateLevel === 'high' ? 'bg-danger/15' : burnRateLevel === 'medium' ? 'bg-warning/15' : 'bg-success/15'}`}>
+                    {burnRateLevel === 'high'
+                      ? <HiArrowTrendingUp className="w-4 h-4 text-danger" />
+                      : <HiArrowTrendingDown className="w-4 h-4 text-success" />
+                    }
+                  </div>
+                  <span className="text-xs text-text-secondary">Burn Rate</span>
+                </div>
+                <p className="text-2xl font-semibold tracking-tight text-text-primary capitalize">{burnRateLevel}</p>
+                <p className="text-[10px] text-text-tertiary mt-0.5">{Math.round(elapsedPct)}% of month elapsed</p>
+              </GlassCard>
+            </div>
+          </motion.div>
+
+          {/* Insights */}
+          <motion.div variants={itemVariants}>
+            <GlassCard className="p-7 md:p-9">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 mb-7">
+                <h3 className="text-sm font-semibold text-text-primary">Insights</h3>
+                <div className="flex bg-[#18181A] rounded-full p-1 border border-white/[0.06]">
+                  {insightTabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveInsight(tab.id)}
+                      className={`px-4 py-1.5 text-[13px] font-medium rounded-full transition-colors ${activeInsight === tab.id
+                        ? 'bg-[#2D8CFF] text-white shadow-[0_2px_8px_rgba(45,140,255,0.4)]'
+                        : 'text-white/50 hover:text-white/80'
+                        }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {activeInsight === 'category' && (
+                <Suspense fallback={<InsightLoadingState />}>
+                  <SpendingDonut
+                    categoryTotals={summary?.categoryTotals || {}}
+                    total={totalSpent}
+                  />
+                </Suspense>
+              )}
+              {activeInsight === 'budget' && (
+                <Suspense fallback={<InsightLoadingState />}>
+                  <BudgetOverview
+                    budget={budget}
+                    categoryTotals={summary?.categoryTotals || {}}
+                  />
+                </Suspense>
+              )}
+              {activeInsight === 'trend' && (
+                <Suspense fallback={<InsightLoadingState />}>
+                  <MonthlyTrend data={trendData} />
+                </Suspense>
+              )}
+            </GlassCard>
+          </motion.div>
+
+          <Suspense
+            fallback={(
+              <motion.div variants={itemVariants}>
+                <GlassCard className="p-7 md:p-8">
+                  <div className="h-28 flex items-center justify-center">
+                    <LoadingSpinner size="md" />
+                  </div>
+                </GlassCard>
+              </motion.div>
+            )}
+          >
+            {showDeferredSections ? (
+              <DashboardDeferredSections
+                hostCurrency={hostCurrency}
+                currentMonth={currentMonth}
+                summary={summary}
+                upcoming30Total={upcoming30Total}
+                upcomingBills={upcomingBills}
+                upcomingBillsLoading={upcomingBillsLoading}
+                upcoming7={upcoming7}
+                weeklyReview={weeklyReview}
+                goals={goals}
+                topCategoryLabel={topCategory.label}
+                totalSpent={totalSpent}
+                recentExpenses={recentExpenses}
+                onApplyUnderspend={handleApplyUnderspend}
+                onAddGoal={() => setShowGoalModal(true)}
+                onShareMonthlySummary={handleShareMonthlySummary}
+                onDownloadMonthlySummary={handleDownloadMonthlySummary}
+              />
+            ) : (
+              <motion.div variants={itemVariants}>
+                <GlassCard className="p-7 md:p-8">
+                  <div className="h-28 flex items-center justify-center">
+                    <LoadingSpinner size="md" />
+                  </div>
+                </GlassCard>
+              </motion.div>
+            )}
+          </Suspense>
+        </motion.div>
+
+        <Suspense fallback={null}>
+          {showExpenseForm && (
+            <ExpenseForm
+              isOpen={showExpenseForm}
+              onClose={() => setShowExpenseForm(false)}
+              onSubmit={handleAddExpense}
+            />
           )}
         </Suspense>
-      </motion.div>
 
-      <Suspense fallback={null}>
-        {showExpenseForm && (
-          <ExpenseForm
-            isOpen={showExpenseForm}
-            onClose={() => setShowExpenseForm(false)}
-            onSubmit={handleAddExpense}
-          />
-        )}
-      </Suspense>
-
-      <Modal isOpen={showGoalModal} onClose={() => setShowGoalModal(false)} title="Create Savings Goal">
-        <form onSubmit={handleCreateGoal} className="space-y-4">
-          <Input
-            label="Goal Name"
-            placeholder="e.g. Summer Trip"
-            value={goalTitle}
-            onChange={(e: any) => setGoalTitle(e.target.value)}
-          />
-          <Input
-            label="Target Amount"
-            type="number"
-            min="1"
-            step="0.01"
-            placeholder="0.00"
-            value={goalAmount}
-            onChange={(e: any) => setGoalAmount(e.target.value)}
-          />
-          <Input
-            label="Target Date (optional)"
-            type="date"
-            value={goalDate}
-            onChange={(e: any) => setGoalDate(e.target.value)}
-          />
-          <Button
-            type="submit"
-            className="w-full"
-            loading={savingGoal}
-            disabled={!goalTitle.trim() || !goalAmount || parseFloat(goalAmount) <= 0}
-          >
-            Save Goal
-          </Button>
-        </form>
-      </Modal>
-    </div>
+        <Modal isOpen={showGoalModal} onClose={() => setShowGoalModal(false)} title="Create Savings Goal">
+          <form onSubmit={handleCreateGoal} className="space-y-4">
+            <Input
+              label="Goal Name"
+              placeholder="e.g. Summer Trip"
+              value={goalTitle}
+              onChange={(e: any) => setGoalTitle(e.target.value)}
+            />
+            <Input
+              label="Target Amount"
+              type="number"
+              min="1"
+              step="0.01"
+              placeholder="0.00"
+              value={goalAmount}
+              onChange={(e: any) => setGoalAmount(e.target.value)}
+            />
+            <Input
+              label="Target Date (optional)"
+              type="date"
+              value={goalDate}
+              onChange={(e: any) => setGoalDate(e.target.value)}
+            />
+            <Button
+              type="submit"
+              className="w-full"
+              loading={savingGoal}
+              disabled={!goalTitle.trim() || !goalAmount || parseFloat(goalAmount) <= 0}
+            >
+              Save Goal
+            </Button>
+          </form>
+        </Modal>
+      </div>
+    </PullToRefresh>
   );
 }

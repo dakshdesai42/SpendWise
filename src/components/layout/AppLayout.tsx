@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
@@ -70,13 +70,19 @@ function Layout() {
 
   useAutoBankSync(user?.uid, demoMode);
 
+  const handleAddExpense = useCallback(() => {
+    const handled = triggerFAB();
+    if (handled) return;
+    navigate('/expenses', { state: { openAddExpense: true, source: 'fab' } });
+  }, [navigate, triggerFAB]);
+
   useEffect(() => {
-    const handleNativeAddExpense = () => triggerFAB();
+    const handleNativeAddExpense = () => handleAddExpense();
     window.addEventListener('spendwise-native-add-expense', handleNativeAddExpense);
     return () => {
       window.removeEventListener('spendwise-native-add-expense', handleNativeAddExpense);
     };
-  }, [triggerFAB]);
+  }, [handleAddExpense]);
 
   function handleTouchStart(event: React.TouchEvent<HTMLElement>) {
     if (currentTabIndex < 0) return;
@@ -177,7 +183,7 @@ function Layout() {
           </div>
         </motion.main>
       </div>
-      <BottomNav onAddExpense={triggerFAB} />
+      <BottomNav onAddExpense={handleAddExpense} />
     </div>
   );
 }

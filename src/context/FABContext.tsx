@@ -4,7 +4,7 @@ type FABAction = () => void;
 
 interface FABContextType {
   setFABAction: (fn: FABAction | null) => void;
-  triggerFAB: () => void;
+  triggerFAB: () => boolean;
 }
 
 const FABContext = createContext<FABContextType | null>(null);
@@ -18,8 +18,12 @@ export function FABProvider({ children }: { children: ReactNode }) {
     setFabActionState(() => fn ?? null);
   }, []);
 
-  function triggerFAB() {
-    if (typeof fabAction === 'function') fabAction();
+  function triggerFAB(): boolean {
+    if (typeof fabAction === 'function') {
+      fabAction();
+      return true;
+    }
+    return false;
   }
 
   return (

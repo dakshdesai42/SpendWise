@@ -1,9 +1,12 @@
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { HiPencil, HiTrash } from 'react-icons/hi2';
 import { CATEGORY_MAP } from '../../utils/constants';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { hapticMedium } from '../../utils/haptics';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useLongPress } from '../../hooks/useLongPress';
 import { Expense } from '../../types/models';
 
 export default function ExpenseCard({ expense, onEdit, onDelete }: { expense: Expense; onEdit?: (expense: Expense) => void; onDelete?: (expense: Expense) => void }) {
@@ -12,6 +15,15 @@ export default function ExpenseCard({ expense, onEdit, onDelete }: { expense: Ex
 
   // Threshold for triggering actions
   const actionThreshold = 60;
+  const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
+
+  const longPress = useLongPress({
+    onLongPress: () => {
+      hapticMedium();
+      setIsContextMenuOpen(true);
+    },
+    ms: 400
+  });
 
   const handleDragEnd = (_event: any, info: any) => {
     const offset = info.offset.x;
@@ -47,46 +59,19 @@ export default function ExpenseCard({ expense, onEdit, onDelete }: { expense: Ex
 
       {/* Foreground Draggable Card */}
       <motion.div
+        layoutId={`expense-card-${expense.id}`}
         drag={onEdit || onDelete ? 'x' : false}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={{ left: onDelete ? 0.3 : 0, right: onEdit ? 0.3 : 0 }}
         onDragEnd={handleDragEnd}
         whileHover={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
-        whileTap={{ cursor: 'grabbing' }}
-        className="relative z-10 flex items-center gap-4 px-4 py-4 md:px-5 bg-black cursor-grab shadow-[[-10px_0_20px_rgba(0,0,0,0.5),10px_0_20px_rgba(0,0,0,0.5)]] transition-colors"
+        whileTap={{ cursor: 'grabbing', scale: 0.98 }}
+        {...longPress}
+        className="relative z-10 flex items-center gap-4 px-4 py-4 md:px-5 bg-black cursor-grab shadow-[[-10px_0_20px_rgba(0,0,0,0.5),10px_0_20px_rgba(0,0,0,0.5)]] transition-colors select-none [-webkit-touch-callout:none]"
       >
-        {/* Category icon */}
-        <div
-          className="relative w-12 h-12 rounded-full flex items-center justify-center text-xl shrink-0 bg-[#121214] border border-white/[0.08] shadow-[0_8px_16px_rgba(0,0,0,0.6)]"
-        >
-          <span style={{ color: cat.color }} className="drop-shadow-[0_0_8px_currentColor]">{cat.icon}</span>
-        </div>
+        <CardContent cat={cat} expense={expense} hostCurrency={hostCurrency} />
 
-        {/* Details */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <p className="text-[15px] font-medium text-white truncate leading-snug">
-              {expense.note || cat.label}
-            </p>
-            {expense.isRecurring && (
-              <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-[#2D8CFF]/15 text-[#2D8CFF] border border-[#2D8CFF]/20 capitalize">
-                🔁 {expense.frequency}
-              </span>
-            )}
-          </div>
-          <p className="text-[13px] text-white/50 mt-1 font-medium">
-            {formatDate(expense.date)} <span className="text-white/20 px-1">•</span> <span style={{ color: cat.color }}>{cat.label}</span>
-          </p>
-        </div>
-
-        {/* Amount */}
-        <div className="text-right shrink-0">
-          <p className="text-[17px] font-semibold text-white tracking-tight">
-            {formatCurrency(expense.amount, hostCurrency)}
-          </p>
-        </div>
-
-        {/* Desktop Hover Actions Fallback (since drag is tricky on non-touch devices without visible cues) */}
+        {/* Desktop Hover Actions Fallback */}
         <div className="hidden lg:flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 absolute right-4 bg-black/80 backdrop-blur-md px-2 py-1 rounded-full border border-white/[0.08]">
           {onEdit && (
             <button
@@ -106,6 +91,79 @@ export default function ExpenseCard({ expense, onEdit, onDelete }: { expense: Ex
           )}
         </div>
       </motion.div>
+
+      {/* Context Menu Portal */}
+      {createPortal(
+        <AnimatePresence>
+          {isContextMenuOpen && (
+            <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 sm:p-12">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsContextMenuOpen(false)}
+                className="absolute inset-0 bg-black/50 backdrop-blur-xl"
+              />
+              <motion.div
+                layoutId={`expense-card-${expense.id}`}
+                className="relative z-10 w-full max-w-sm rounded-[24px] bg-[#1C1C1E] p-4 shadow-2xl flex items-center gap-4 border border-white/[0.08]"
+              >
+                <CardContent cat={cat} expense={expense} hostCurrency={hostCurrency} />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', damping: 25, stiffness: 300, delay: 0.1 } }}
+                exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                className="relative z-10 w-full max-w-sm mt-4 bg-[#1C1C1E] rounded-2xl overflow-hidden divide-y divide-[#38383A] border border-white/[0.08] shadow-2xl"
+              >
+                {onEdit && (
+                  <button onClick={() => { setIsContextMenuOpen(false); onEdit(expense); }} className="w-full px-5 py-3.5 flex items-center justify-between text-[17px] text-white active:bg-[#2C2C2E] transition-colors">
+                    <span>Edit Expense</span>
+                    <HiPencil className="w-5 h-5 text-white/50" />
+                  </button>
+                )}
+                {onDelete && (
+                  <button onClick={() => { setIsContextMenuOpen(false); onDelete(expense); }} className="w-full px-5 py-3.5 flex items-center justify-between text-[17px] text-[#FF453A] active:bg-[#2C2C2E] transition-colors">
+                    <span>Delete</span>
+                    <HiTrash className="w-5 h-5" />
+                  </button>
+                )}
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </motion.div>
+  );
+}
+
+function CardContent({ cat, expense, hostCurrency }: { cat: any, expense: Expense, hostCurrency: string }) {
+  return (
+    <>
+      <div className="relative w-12 h-12 rounded-full flex items-center justify-center text-xl shrink-0 bg-[#2C2C2E] border border-white/[0.08] shadow-[0_8px_16px_rgba(0,0,0,0.4)]">
+        <span style={{ color: cat.color }} className="drop-shadow-[0_0_8px_currentColor]">{cat.icon}</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-[17px] font-medium text-white truncate leading-snug">
+            {expense.note || cat.label}
+          </p>
+          {expense.isRecurring && (
+            <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-[#2D8CFF]/15 text-[#2D8CFF] border border-[#2D8CFF]/20 capitalize">
+              🔁 {expense.frequency}
+            </span>
+          )}
+        </div>
+        <p className="text-[13px] text-[#8E8E93] mt-0.5 font-medium">
+          {formatDate(expense.date)} <span className="text-[#38383A] px-1">•</span> <span style={{ color: cat.color }}>{cat.label}</span>
+        </p>
+      </div>
+      <div className="text-right shrink-0">
+        <p className="text-[17px] font-semibold text-white tracking-tight">
+          {formatCurrency(expense.amount, hostCurrency)}
+        </p>
+      </div>
+    </>
   );
 }

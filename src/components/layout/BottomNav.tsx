@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Capacitor } from '@capacitor/core';
@@ -24,6 +24,14 @@ const rightItems = [
 
 export default function BottomNav({ onAddExpense }: { onAddExpense?: () => void }) {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const lastAddExpenseTapRef = useRef(0);
+  const triggerAddExpense = () => {
+    const now = Date.now();
+    if (now - lastAddExpenseTapRef.current < 250) return;
+    lastAddExpenseTapRef.current = now;
+    hapticMedium();
+    onAddExpense?.();
+  };
 
   useEffect(() => {
     const isNative = Capacitor.isNativePlatform();
@@ -94,10 +102,12 @@ export default function BottomNav({ onAddExpense }: { onAddExpense?: () => void 
         {/* Center FAB */}
         <div className="flex items-center justify-center px-3">
           <motion.button
-            onClick={() => { hapticMedium(); onAddExpense?.(); }}
+            onClick={triggerAddExpense}
+            onPointerUp={triggerAddExpense}
             whileTap={{ scale: 0.9 }}
             className="flex items-center justify-center rounded-full bg-[#2D8CFF] shadow-[0_4px_24px_-4px_rgba(45,140,255,0.6)]"
             aria-label="Add expense"
+            type="button"
             style={{
               width: '3.75rem',
               height: '3.75rem',
