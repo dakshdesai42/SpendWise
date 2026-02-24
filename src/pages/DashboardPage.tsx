@@ -348,11 +348,11 @@ Upcoming 30 days: ${formatCurrency(upcoming30Total, hostCurrency)}`;
           <GlassCard className="p-7 md:p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm text-text-secondary mb-2">Spent This Month</p>
-                <p className="text-5xl md:text-6xl font-semibold tracking-tighter text-text-primary leading-none">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#2D8CFF] mb-3">Spent This Month</p>
+                <p className="text-[3rem] md:text-[4rem] font-light tracking-tight text-white leading-none">
                   {formatCurrency(totalSpent, hostCurrency)}
                 </p>
-                <p className="text-sm text-text-tertiary mt-2.5">
+                <p className="text-sm text-white/40 mt-3 font-medium">
                   ≈ {formatCurrency(totalSpentHome, homeCurrency)} &middot; {summary?.transactionCount || 0} transactions
                 </p>
               </div>
@@ -431,14 +431,14 @@ Upcoming 30 days: ${formatCurrency(upcoming30Total, hostCurrency)}`;
           <GlassCard className="p-7 md:p-9">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 mb-7">
               <h3 className="text-sm font-semibold text-text-primary">Insights</h3>
-              <div className="flex items-center gap-1 rounded-xl bg-white/[0.03] border border-white/[0.07] p-1">
+              <div className="flex bg-[#18181A] rounded-full p-1 border border-white/[0.06]">
                 {insightTabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveInsight(tab.id)}
-                    className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${activeInsight === tab.id
-                      ? 'bg-accent-primary/15 text-accent-primary'
-                      : 'text-text-tertiary hover:text-text-secondary'
+                    className={`px-4 py-1.5 text-[13px] font-medium rounded-full transition-colors ${activeInsight === tab.id
+                      ? 'bg-[#2D8CFF] text-white shadow-[0_2px_8px_rgba(45,140,255,0.4)]'
+                      : 'text-white/50 hover:text-white/80'
                       }`}
                   >
                     {tab.label}

@@ -138,26 +138,38 @@ export default function DashboardDeferredSections({
           {goals.length === 0 ? (
             <p className="text-sm text-text-tertiary">No goals yet. Create your first goal.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {goals.map((goal) => {
                 const currentSaved = goal.currentSaved || 0;
                 const targetAmount = goal.targetAmount || 0;
                 const progress = targetAmount > 0 ? Math.min((currentSaved / targetAmount) * 100, 100) : 0;
 
+                // SVG Circle Math (r=20)
+                const circumference = 2 * Math.PI * 20;
+                const strokeDashoffset = circumference - (progress / 100) * circumference;
+
                 return (
-                  <div key={goal.id || goal.title} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-text-primary">{goal.title}</p>
-                        <p className="text-xs text-text-tertiary">
-                          {formatCurrency(currentSaved, hostCurrency)} / {formatCurrency(targetAmount, hostCurrency)}
-                          {goal.targetDate ? ` • target ${format(parseLocalDate(goal.targetDate), 'MMM d, yyyy')}` : ''}
-                        </p>
-                      </div>
-                      <span className="text-xs text-text-secondary">{Math.round(progress)}%</span>
+                  <div key={goal.id || goal.title} className="flex items-center gap-4 p-4 rounded-[20px] bg-[#18181A] border border-white/[0.04]">
+                    {/* Circular Progress Ring */}
+                    <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle cx="24" cy="24" r="20" fill="transparent" stroke="white" strokeOpacity="0.06" strokeWidth="4" />
+                        <circle cx="24" cy="24" r="20" fill="transparent" stroke="#2D8CFF" strokeWidth="4"
+                          strokeDasharray={circumference}
+                          strokeDashoffset={strokeDashoffset}
+                          className="transition-all duration-1000 drop-shadow-[0_0_8px_rgba(45,140,255,0.6)]"
+                          strokeLinecap="round" />
+                      </svg>
+                      <span className="absolute text-[10px] font-semibold text-white">{Math.round(progress)}%</span>
                     </div>
-                    <div className="h-2 rounded-full bg-white/[0.08] overflow-hidden">
-                      <div className="h-full rounded-full bg-accent-primary" style={{ width: `${progress}%` }} />
+
+                    {/* Goal Details */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[15px] font-medium text-white truncate">{goal.title}</p>
+                      <p className="text-[12px] text-white/50 mt-1">
+                        {formatCurrency(currentSaved, hostCurrency)} <span className="text-white/30">/ {formatCurrency(targetAmount, hostCurrency)}</span>
+                        {goal.targetDate ? ` • ${format(parseLocalDate(goal.targetDate), 'MMM d, yyyy')}` : ''}
+                      </p>
                     </div>
                   </div>
                 );

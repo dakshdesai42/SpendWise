@@ -14,11 +14,11 @@ export default function GlassCard({
   ...props
 }: GlassCardProps) {
   const cardClassName = clsx(
-    'rounded-3xl',
-    'bg-[#1C1C1E]/60 backdrop-blur-[24px] saturate-[1.8]',
-    'shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_32px_rgba(0,0,0,0.4)]',
+    'rounded-[24px] border border-white/[0.04]',
+    'bg-[#121214]',
+    'shadow-[0_8px_32px_rgba(0,0,0,0.6)]',
     'transition-colors duration-300',
-    hover && 'cursor-pointer hover:bg-[#2C2C2E]/60',
+    hover && 'cursor-pointer hover:bg-[#18181A]',
     className
   );
 

@@ -74,15 +74,16 @@ export default function BottomNav({ onAddExpense }: { onAddExpense?: () => void 
   return (
     <nav
       data-ios-liquid-tabbar="true"
-      className={`bottom-nav-shell lg:hidden fixed bottom-0 left-0 right-0 z-40 transition-transform duration-200 ${keyboardVisible ? 'translate-y-full pointer-events-none' : 'translate-y-0'
+      className={`lg:hidden fixed bottom-6 left-4 right-4 z-40 transition-all duration-300 ${keyboardVisible ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
         }`}
       style={{
         paddingBottom: 'var(--safe-area-bottom)',
-        paddingLeft: 'max(0.5rem, var(--safe-area-left))',
-        paddingRight: 'max(0.5rem, var(--safe-area-right))',
       }}
     >
-      <div className="bottom-nav-track flex items-center px-1.5" style={{ height: 'var(--bottom-nav-height)' }}>
+      <div
+        className="flex items-center px-2 py-1.5 mx-auto max-w-[400px] rounded-[32px] border border-white/[0.06] bg-[#18181A]/90 backdrop-blur-2xl shadow-[0_24px_48px_rgba(0,0,0,0.8)]"
+        style={{ minHeight: '4.5rem' }}
+      >
         {/* Left side */}
         <div className="flex flex-1 justify-around">
           {leftItems.map((item) => (
@@ -95,16 +96,15 @@ export default function BottomNav({ onAddExpense }: { onAddExpense?: () => void 
           <motion.button
             onClick={() => { hapticMedium(); onAddExpense?.(); }}
             whileTap={{ scale: 0.9 }}
-            className="bottom-nav-fab flex items-center justify-center rounded-full border border-white/20 shadow-lg shadow-accent-primary/35"
+            className="flex items-center justify-center rounded-full bg-[#2D8CFF] shadow-[0_4px_24px_-4px_rgba(45,140,255,0.6)]"
             aria-label="Add expense"
             style={{
-              width: 'var(--bottom-nav-fab-size, 3.5rem)',
-              height: 'var(--bottom-nav-fab-size, 3.5rem)',
-              marginTop: 'calc(var(--bottom-nav-fab-lift, 1.5rem) * -1)',
-              background: 'linear-gradient(135deg, var(--color-accent-primary) 0%, #0066d6 100%)',
+              width: '3.75rem',
+              height: '3.75rem',
+              marginTop: '-1.75rem',
             }}
           >
-            <HiPlus className="w-7 h-7 text-white" strokeWidth={2.5} />
+            <HiPlus className="w-8 h-8 text-white" strokeWidth={2.5} />
           </motion.button>
         </div>
 
@@ -124,29 +124,29 @@ function NavTabItem({ item }: { item: { to: string; icon: any; label: string } }
     <NavLink
       to={item.to}
       onClick={() => hapticLight()}
-      className="bottom-nav-item relative flex min-h-11 w-[4.25rem] flex-col items-center justify-center gap-1 rounded-2xl py-1.5"
+      className="relative flex min-h-[3rem] w-[4.25rem] flex-col items-center justify-center gap-1.5 rounded-2xl py-1.5"
       aria-label={item.label}
     >
       {({ isActive }) => (
         <>
-          {/* Active pill bg */}
-          {isActive && (
-            <motion.div
-              layoutId="bottomnav-pill"
-              className="bottom-nav-active-pill absolute inset-x-0 top-0 bottom-0 rounded-2xl bg-accent-primary/12"
-              transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-            />
-          )}
           <item.icon
-            className={`w-[22px] h-[22px] transition-colors duration-200 relative z-10 ${isActive ? 'text-accent-primary' : 'text-text-tertiary'
+            className={`w-[22px] h-[22px] transition-colors duration-200 relative z-10 ${isActive ? 'text-[#2D8CFF]' : 'text-white/40'
               }`}
           />
           <span
-            className={`text-[11px] font-semibold tracking-wide relative z-10 transition-colors duration-200 ${isActive ? 'text-accent-primary' : 'text-text-tertiary'
+            className={`text-[10px] font-medium tracking-wide relative z-10 transition-colors duration-200 ${isActive ? 'text-[#2D8CFF]' : 'text-white/40'
               }`}
           >
             {item.label}
           </span>
+          {/* Active dot indicator */}
+          {isActive && (
+            <motion.div
+              layoutId="bottomnav-dot"
+              className="absolute -top-0 w-1 h-1 rounded-full bg-[#2D8CFF] shadow-[0_0_8px_rgba(45,140,255,0.9)]"
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            />
+          )}
         </>
       )}
     </NavLink>
