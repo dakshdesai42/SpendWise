@@ -52,7 +52,7 @@ export default function SpendingDonut({ categoryTotals, total, currency }: { cat
             paddingAngle={3}
             dataKey="rawValue"
             animationBegin={0}
-            animationDuration={550}
+            animationDuration={800}
           >
             {data.map((entry, index) => (
               <Cell key={index} fill={entry.color} stroke="transparent" />

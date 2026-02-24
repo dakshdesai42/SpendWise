@@ -73,10 +73,10 @@ export default function MonthlyTrend({ data }: { data: TrendDataPoint[] }) {
           dataKey="total"
           stroke="#2D8CFF"
           strokeWidth={4}
-          strokeLinecap="round"
           fill="url(#trendGradient)"
           activeDot={{ r: 6, fill: '#fff', stroke: '#2D8CFF', strokeWidth: 3, filter: 'url(#neonGlow)' }}
-          animationDuration={900}
+          filter="url(#neonGlow)"
+          animationDuration={1500}
           animationEasing="ease-out"
         />
       </AreaChart>
