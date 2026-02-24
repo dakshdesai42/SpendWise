@@ -266,7 +266,7 @@ export default function ExpenseForm({ isOpen, onClose, onSubmit, initialData }: 
         {/* Action Row: Date & Recurring */}
         <div className="flex gap-3">
           {/* Date Picker Button Capsule */}
-          <div className="relative flex-1">
+          <div className="relative w-[55%]">
             <div className="w-full bg-[#18181A] border border-white/[0.06] rounded-[14px] px-4 py-3 flex items-center justify-between pointer-events-none">
               <span className="text-[15px] text-white whitespace-nowrap">
                 <span className="text-white/50 mr-1">Date:</span>
