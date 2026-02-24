@@ -15,7 +15,7 @@ export default function ExpenseList({ expenses, onEdit, onDelete, emptyMessage }
   }
 
   return (
-    <div className="space-y-4 md:space-y-5">
+    <div className="flex flex-col gap-1 md:gap-2">
       <AnimatePresence mode="popLayout">
         {expenses.map((expense) => (
           <ExpenseCard

@@ -21,14 +21,14 @@ const Select = forwardRef<HTMLSelectElement, {
       <select
         ref={ref}
         className={clsx(
-          'w-full rounded-xl border border-white/[0.10] bg-white/[0.05]',
-          'px-4 py-3 text-sm text-text-primary',
-          'focus:border-accent-primary/55 focus:ring-2 focus:ring-accent-primary/20',
+          'w-full rounded-[20px] border border-white/[0.06] bg-[#18181A]',
+          'px-5 py-4 text-[15px] text-white/90 shadow-[0_4px_16px_rgba(0,0,0,0.4)]',
+          'focus:border-[#2D8CFF]/50 focus:ring-2 focus:ring-[#2D8CFF]/20',
           'focus-visible:outline-none',
-          'transition-all duration-200 appearance-none',
-          'bg-[url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E")]',
-          'bg-[position:right_12px_center] bg-no-repeat',
-          error && 'border-danger/50',
+          'transition-all duration-300 appearance-none',
+          'bg-[url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23ffffff%22%20stroke-opacity%3D%220.5%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E")]',
+          'bg-[position:right_16px_center] bg-no-repeat',
+          error && 'border-[#FF453A]/50',
           className
         )}
         {...props}

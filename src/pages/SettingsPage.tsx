@@ -200,25 +200,16 @@ export default function SettingsPage() {
       >
         {/* Account */}
         <motion.div variants={itemVariants}>
-          <GlassCard className="p-6 md:p-7">
-            <h3 className="text-sm font-medium text-text-secondary mb-4">Account</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-tertiary">Name</span>
-                <span className="text-sm text-text-primary">{profile?.displayName || 'User'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-tertiary">Email</span>
-                <span className="text-sm text-text-primary">{profile?.email || user?.email}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-text-tertiary">Streak</span>
-                <span className="text-sm text-text-primary">
-                  {profile?.currentStreak || 0} days (best: {profile?.longestStreak || 0})
-                </span>
-              </div>
+          <div className="flex flex-col items-center justify-center text-center py-8">
+            <div className="w-24 h-24 rounded-full bg-[#18181A] border border-white/[0.06] shadow-[0_16px_48px_rgba(0,0,0,0.8)] mb-6 flex items-center justify-center text-4xl font-light text-white font-serif uppercase">
+              {profile?.displayName?.trim().charAt(0) || 'U'}
             </div>
-          </GlassCard>
+            <h2 className="text-2xl font-semibold text-white mb-1 tracking-tight">{profile?.displayName || 'User'}</h2>
+            <p className="text-[14px] text-white/40 mb-6 font-medium">{profile?.email || user?.email}</p>
+            <div className="inline-flex items-center rounded-full bg-[#18181A] border border-white/[0.06] px-5 py-2.5 text-[13px] text-white font-medium shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+              🔥 {profile?.currentStreak || 0} Day Streak <span className="text-white/20 mx-2">|</span> <span className="text-white/50">Best: {profile?.longestStreak || 0}</span>
+            </div>
+          </div>
         </motion.div>
 
         {/* Currencies */}
@@ -382,11 +373,13 @@ export default function SettingsPage() {
           </GlassCard>
         </motion.div>
 
-        {/* Sign Out */}
-        <motion.div variants={itemVariants}>
-          <Button variant="danger" className="w-full" size="lg" onClick={handleSignOut}>
+        <motion.div variants={itemVariants} className="pt-4 pb-20">
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center p-4 rounded-[20px] bg-[#FF453A]/10 text-[#FF453A] font-medium transition-all hover:bg-[#FF453A]/20 hover:shadow-[0_0_24px_rgba(255,69,58,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF453A]/50"
+          >
             Sign Out
-          </Button>
+          </button>
         </motion.div>
       </motion.div>
     </div>

@@ -15,12 +15,12 @@ export default function Header({ onAddExpense }: { onAddExpense?: () => void }) 
   };
 
   return (
-    <header className="app-page-header flex items-start sm:items-center justify-between gap-4">
+    <header className="sticky top-0 z-30 bg-[#121214]/70 backdrop-blur-3xl border-b border-white/[0.04] -mx-4 px-4 py-4 mb-6 flex items-start sm:items-center justify-between gap-4" style={{ paddingTop: 'max(1rem, var(--safe-area-top))' }}>
       <div>
         <motion.h2
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="text-2xl lg:text-3xl font-semibold tracking-tighter text-text-primary"
+          className="text-3xl lg:text-4xl font-bold tracking-tighter text-white"
         >
           {getGreeting()}, {firstName}
         </motion.h2>

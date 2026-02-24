@@ -4,7 +4,6 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
 import IOSNativeBridge from './components/native/IOSNativeBridge';
 import { FullPageLoader } from './components/ui/LoadingSpinner';
-import OnboardingScreen, { useOnboarding } from './components/onboarding/OnboardingScreen';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const SignupPage = lazy(() => import('./pages/SignupPage'));
@@ -15,12 +14,6 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 export default function App() {
-  const { showOnboarding, completeOnboarding } = useOnboarding();
-
-  if (showOnboarding) {
-    return <OnboardingScreen onComplete={completeOnboarding} />;
-  }
-
   return (
     <Suspense fallback={<FullPageLoader state="data_loading" message="Loading screen..." />}>
       <IOSNativeBridge />

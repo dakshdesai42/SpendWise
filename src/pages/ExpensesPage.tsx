@@ -264,31 +264,31 @@ export default function ExpensesPage() {
         {tab === 'transactions' ? (
           <motion.div key="transactions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {/* Month Selector */}
-            <div className="flex items-center justify-center gap-4 mb-6 md:mb-8">
+            <div className="flex items-center justify-center gap-6 mb-8 md:mb-10">
               <button
                 onClick={prevMonth}
-                className="p-2 rounded-lg hover:bg-white/[0.06] text-text-secondary transition-colors"
+                className="p-3 rounded-full text-white/30 hover:text-white/80 hover:bg-white/[0.04] transition-all"
                 aria-label="Previous month"
                 type="button"
               >
-                <HiChevronLeft className="w-5 h-5" />
+                <HiChevronLeft className="w-8 h-8" />
               </button>
-              <span className="text-lg font-semibold text-text-primary min-w-[160px] text-center">
+              <span className="text-4xl lg:text-[3.5rem] font-light tracking-tight text-white min-w-[200px] text-center leading-none">
                 {formatMonth(month)}
               </span>
               <button
                 onClick={nextMonth}
                 className={clsx(
-                  'p-2 rounded-lg transition-colors',
+                  'p-3 rounded-full transition-all',
                   month >= getCurrentMonth()
-                    ? 'text-text-tertiary cursor-not-allowed'
-                    : 'hover:bg-white/[0.06] text-text-secondary'
+                    ? 'text-white/10 cursor-not-allowed'
+                    : 'text-white/30 hover:text-white/80 hover:bg-white/[0.04]'
                 )}
                 disabled={month >= getCurrentMonth()}
                 aria-label="Next month"
                 type="button"
               >
-                <HiChevronRight className="w-5 h-5" />
+                <HiChevronRight className="w-8 h-8" />
               </button>
             </div>
 
@@ -303,10 +303,10 @@ export default function ExpensesPage() {
               <button
                 onClick={() => setFilter('all')}
                 className={clsx(
-                  'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors',
+                  'px-4 py-2 rounded-full text-[13px] font-medium whitespace-nowrap transition-all border',
                   filter === 'all'
-                    ? 'bg-accent-primary/15 text-accent-primary'
-                    : 'bg-white/[0.04] text-text-tertiary hover:text-text-secondary'
+                    ? 'bg-[#2D8CFF] text-white border-transparent shadow-[0_2px_8px_rgba(45,140,255,0.4)]'
+                    : 'bg-[#18181A] border-white/[0.06] text-white/50 hover:text-white/80'
                 )}
               >
                 All ({expenses.length})
@@ -316,10 +316,12 @@ export default function ExpensesPage() {
                   key={cat.id}
                   onClick={() => setFilter(cat.id)}
                   className={clsx(
-                    'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors',
-                    filter === cat.id ? 'text-white' : 'bg-white/[0.04] text-text-tertiary hover:text-text-secondary'
+                    'px-4 py-2 rounded-full text-[13px] font-medium whitespace-nowrap transition-all border',
+                    filter === cat.id
+                      ? 'text-white border-transparent shadow-[0_2px_8px_rgba(45,140,255,0.2)]'
+                      : 'bg-[#18181A] border-white/[0.06] text-white/50 hover:text-white/80'
                   )}
-                  style={filter === cat.id ? { backgroundColor: `${cat.color}30`, color: cat.color } : {}}
+                  style={filter === cat.id ? { backgroundColor: cat.color } : {}}
                 >
                   {cat.label} ({cat.count})
                 </button>
@@ -327,7 +329,7 @@ export default function ExpensesPage() {
               {hasMoreFilters && (
                 <button
                   onClick={() => setShowAllFilters((prev) => !prev)}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap bg-white/[0.04] text-text-secondary hover:text-text-primary transition-colors"
+                  className="px-4 py-2 rounded-full text-[13px] font-medium whitespace-nowrap bg-[#18181A] border border-white/[0.06] text-white/50 hover:text-white/80 transition-all"
                 >
                   {showAllFilters ? 'Less' : `More (${categoriesWithCount.length - 4})`}
                 </button>
@@ -337,14 +339,14 @@ export default function ExpensesPage() {
             {loading ? (
               <div className="flex justify-center py-20"><LoadingSpinner /></div>
             ) : (
-              <GlassCard className="p-4 md:p-5">
+              <div className="md:px-2 md:py-2">
                 <ExpenseList
                   expenses={filtered}
                   onEdit={(e) => { setEditingExpense(e); setShowForm(true); }}
                   onDelete={handleDelete}
                   emptyMessage={filter !== 'all' ? 'No expenses in this category' : undefined}
                 />
-              </GlassCard>
+              </div>
             )}
           </motion.div>
         ) : (
