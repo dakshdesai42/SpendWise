@@ -176,12 +176,13 @@ function Layout() {
       <div className="flex-1 relative w-full h-full [perspective:1000px]">
         <motion.main
           data-scroll-container="app-main"
-          className="absolute inset-0 w-full h-full overflow-y-auto overscroll-y-contain origin-top bg-[#000000] rounded-[32px] transition-all duration-500 will-change-transform"
+          className="absolute inset-0 w-full h-full overflow-y-auto overscroll-y-contain origin-top bg-[#000000] rounded-[32px] transition-transform duration-300 will-change-transform"
           style={{
             paddingTop: 'calc(var(--safe-area-top) + var(--app-shell-top-gap))',
             paddingLeft: 'var(--app-shell-horizontal-padding)',
             paddingRight: 'var(--app-shell-horizontal-padding)',
             WebkitOverflowScrolling: 'touch',
+            transform: 'translateZ(0)',
           }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -189,7 +190,7 @@ function Layout() {
           onTouchCancel={handleTouchCancel}
         >
           <div className="max-w-6xl mx-auto space-y-1 pb-24">
-            <AnimatePresence mode="popLayout" initial={false}>
+            <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={location.pathname}
                 custom={pageDirection}
@@ -210,7 +211,8 @@ function Layout() {
                   scale: 0.997,
                   transition: { duration: 0.2, ease: 'easeInOut' },
                 })}
-                className="w-full"
+                className="w-full will-change-transform"
+                style={{ transform: 'translateZ(0)' }}
               >
                 <Outlet />
               </motion.div>

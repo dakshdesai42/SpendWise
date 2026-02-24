@@ -13,13 +13,13 @@ export const pageTransition = {
 export const containerVariants = {
   initial: {},
   animate: {
-    transition: { staggerChildren: 0.06 },
+    transition: { staggerChildren: 0.04 },
   },
 } as const;
 
 export const itemVariants = {
   initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.24, ease: 'easeOut' } },
 } as const;
 
 export const fadeIn = {
