@@ -16,17 +16,7 @@ export default function Header({ onAddExpense }: { onAddExpense?: () => void }) 
 
   return (
     <header
-      // Negative margins pull it out of the layout padding to touch the edges, 
-      // but we wrap the content so it stays aligned with the grid
-      className="sticky top-0 z-30 bg-[#121214]/80 backdrop-blur-3xl border-b border-light-divider mb-6 shadow-sm"
-      style={{
-        paddingTop: 'calc(max(1rem, var(--safe-area-top)) + 0.5rem)',
-        marginInline: 'calc(var(--app-shell-horizontal-padding) * -1)',
-        paddingBottom: '1rem',
-        paddingInline: 'var(--app-shell-horizontal-padding)',
-        // Negative top margin pulls it flush against the top of the scroll container
-        marginTop: 'calc((var(--safe-area-top) + var(--app-shell-top-gap)) * -1)'
-      }}
+      className="app-page-header mb-4"
     >
       <div className="flex items-start sm:items-center justify-between gap-4">
         <div>
