@@ -54,7 +54,7 @@ export default function ConfirmSheet({
         >
           {/* Backdrop */}
           <motion.div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={busy ? undefined : onCancel}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -70,12 +70,12 @@ export default function ConfirmSheet({
             exit={{ y: 40, opacity: 0, scale: 0.96, transition: { duration: 0.18 } }}
           >
             {/* Info card */}
-            <div className="bg-bg-secondary/98 border border-white/[0.10] rounded-2xl p-5 mb-2 text-center">
+            <div className="bg-[#1C1C1E]/80 backdrop-blur-[40px] border border-white/[0.04] rounded-[14px] p-5 mb-2 text-center shadow-[0_8px_32px_rgba(0,0,0,0.6)]">
               {title && (
-                <p className="text-sm font-semibold text-text-primary mb-1">{title}</p>
+                <p className="text-[13px] font-semibold text-white/50 mb-1">{title}</p>
               )}
               {message && (
-                <p className="text-xs text-text-tertiary">{message}</p>
+                <p className="text-[13px] text-white/40">{message}</p>
               )}
             </div>
 
@@ -84,17 +84,17 @@ export default function ConfirmSheet({
               <button
                 onClick={handleConfirm}
                 disabled={busy}
-                className={`w-full py-4 rounded-2xl text-sm font-semibold transition-opacity active:opacity-70 disabled:opacity-50 ${danger
-                  ? 'bg-danger/90 text-white'
-                  : 'bg-accent-primary/90 text-white'
-                  }`}
+                className={danger
+                  ? "w-full py-4 rounded-[14px] text-[17px] font-semibold transition-all active:scale-[0.98] disabled:opacity-50 bg-[#1C1C1E]/80 backdrop-blur-[40px] border border-white/[0.04] text-[#FF453A]"
+                  : "w-full py-4 rounded-[14px] text-[17px] font-semibold transition-all active:scale-[0.98] disabled:opacity-50 bg-[#1C1C1E]/80 backdrop-blur-[40px] border border-white/[0.04] text-[#2D8CFF]"
+                }
               >
                 {busy ? 'Deleting…' : confirmLabel}
               </button>
               <button
                 onClick={onCancel}
                 disabled={busy}
-                className="w-full py-4 rounded-2xl text-sm font-semibold bg-bg-secondary/98 border border-white/[0.10] text-text-primary transition-opacity active:opacity-70 disabled:opacity-50"
+                className="w-full py-4 rounded-[14px] text-[17px] font-semibold bg-[#1C1C1E]/80 backdrop-blur-[40px] border border-white/[0.04] text-[#2D8CFF] transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 Cancel
               </button>

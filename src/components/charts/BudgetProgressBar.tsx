@@ -8,12 +8,12 @@ export default function BudgetProgressBar({ spent, budget, label, color, showAmo
 
   const barColor =
     percent >= 100
-      ? 'var(--color-danger)'
+      ? '#FF453A' // Neon Red
       : percent >= 90
-        ? 'var(--color-warning)'
+        ? '#FF9F0A' // Neon Orange
         : percent >= 75
-          ? '#f59e0b'
-          : color || 'var(--color-accent-primary)';
+          ? '#ffd60a' // Neon Yellow
+          : color || '#2D8CFF'; // Neon Blue
 
   return (
     <div className="space-y-2">
@@ -29,13 +29,16 @@ export default function BudgetProgressBar({ spent, budget, label, color, showAmo
           )}
         </div>
       )}
-      <div className="h-2 rounded-full bg-white/[0.10] overflow-hidden">
+      <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden drop-shadow-md">
         <motion.div
           className={clsx(
             'h-full rounded-full',
             percent >= 100 && 'animate-pulse'
           )}
-          style={{ backgroundColor: barColor }}
+          style={{
+            backgroundColor: barColor,
+            boxShadow: `0 0 12px ${barColor}`
+          }}
           variants={barFillVariants}
           initial="initial"
           animate="animate"
@@ -44,12 +47,12 @@ export default function BudgetProgressBar({ spent, budget, label, color, showAmo
       </div>
       {percent >= 90 && (
         <p className={clsx(
-          'text-xs font-medium',
-          percent >= 100 ? 'text-danger' : 'text-warning'
+          'text-xs font-semibold tracking-wide',
+          percent >= 100 ? 'text-[#FF453A]' : 'text-[#FF9F0A]'
         )}>
           {percent >= 100
-            ? `Over budget by $${(spent - budget).toFixed(0)}!`
-            : `${(100 - percent).toFixed(0)}% remaining`}
+            ? `OVER BUDGET $${(spent - budget).toFixed(0)}`
+            : `${(100 - percent).toFixed(0)}% LEFT`}
         </p>
       )}
     </div>

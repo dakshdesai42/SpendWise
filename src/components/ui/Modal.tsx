@@ -145,7 +145,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
 
           {/* Sheet — mobile: drag-to-dismiss; desktop: centered */}
           <motion.div
-            className={`relative w-full ${sizeClasses[size]} md:mx-4 rounded-t-[28px] md:rounded-[24px] border border-white/[0.04] bg-[#121214] shadow-[0_12px_48px_rgba(0,0,0,0.8)] flex flex-col`}
+            className={`relative w-full ${sizeClasses[size]} md:mx-4 rounded-t-[32px] md:rounded-[32px] border border-white/[0.04] bg-[#121214] shadow-[0_-8px_40px_rgba(0,0,0,0.8)] flex flex-col`}
             style={{
               y: dragY,
               maxHeight: 'calc(100dvh - var(--safe-area-top) - 0.35rem)',

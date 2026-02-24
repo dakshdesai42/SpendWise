@@ -108,19 +108,24 @@ export default function BudgetsPage() {
           className="space-y-6 mt-3 md:mt-4"
         >
           {/* Overall Budget */}
-          <motion.div variants={itemVariants}>
-            <GlassCard className="p-6 md:p-7">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-medium text-text-secondary">Overall Monthly Budget</h3>
-                <span className="text-sm text-text-tertiary">
-                  {formatCurrency(totalSpent, hostCurrency)} / {formatCurrency(budget.overall, hostCurrency)}
+          <motion.div variants={itemVariants} className="pt-2">
+            <GlassCard className="p-6 md:p-8 flex flex-col items-center justify-center text-center">
+              <h3 className="text-[13px] font-bold text-[#2D8CFF] uppercase tracking-[0.2em] mb-2">Total Budget</h3>
+              <div className="flex items-baseline justify-center gap-2 mb-6">
+                <span className="text-[3rem] md:text-[4rem] font-light text-white tracking-tighter leading-none">
+                  {formatCurrency(totalSpent, hostCurrency)}
+                </span>
+                <span className="text-xl text-white/40 font-medium">
+                  / {formatCurrency(budget.overall, hostCurrency)}
                 </span>
               </div>
-              <BudgetProgressBar
-                spent={totalSpent}
-                budget={budget.overall}
-                showAmount={false}
-              />
+              <div className="w-full max-w-sm">
+                <BudgetProgressBar
+                  spent={totalSpent}
+                  budget={budget.overall}
+                  showAmount={false}
+                />
+              </div>
             </GlassCard>
           </motion.div>
 

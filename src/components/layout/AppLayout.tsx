@@ -1,5 +1,6 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef } from 'react';
+import { motion } from 'framer-motion';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
 import { FABProvider, useFAB } from '../../context/FABContext';
@@ -144,26 +145,28 @@ function Layout() {
   }
 
   return (
-    <div className="relative flex h-[100dvh] w-full overflow-hidden bg-bg-primary">
+    <div className="relative flex h-[100dvh] w-full overflow-hidden bg-black">
       <Sidebar />
-      <main
-        data-scroll-container="app-main"
-        className="flex-1 overflow-y-auto overscroll-y-contain"
-        style={{
-          paddingTop: 'calc(var(--safe-area-top) + var(--app-shell-top-gap))',
-          paddingLeft: 'var(--app-shell-horizontal-padding)',
-          paddingRight: 'var(--app-shell-horizontal-padding)',
-          WebkitOverflowScrolling: 'touch',
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchCancel}
-      >
-        <div className="max-w-6xl mx-auto space-y-1">
-          <Outlet />
-        </div>
-      </main>
+      <div className="flex-1 relative w-full h-full [perspective:1000px]">
+        <motion.main
+          data-scroll-container="app-main"
+          className="absolute inset-0 w-full h-full overflow-y-auto overscroll-y-contain origin-top bg-[#000000] rounded-[32px] transition-all duration-500 will-change-transform"
+          style={{
+            paddingTop: 'calc(var(--safe-area-top) + var(--app-shell-top-gap))',
+            paddingLeft: 'var(--app-shell-horizontal-padding)',
+            paddingRight: 'var(--app-shell-horizontal-padding)',
+            WebkitOverflowScrolling: 'touch',
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchCancel}
+        >
+          <div className="max-w-6xl mx-auto space-y-1 pb-24">
+            <Outlet />
+          </div>
+        </motion.main>
+      </div>
       <BottomNav onAddExpense={triggerFAB} />
     </div>
   );
