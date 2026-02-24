@@ -36,6 +36,12 @@ const SpendingDonut = lazy(() => import('../components/charts/SpendingDonut'));
 const MonthlyTrend = lazy(() => import('../components/charts/MonthlyTrend'));
 const BudgetOverview = lazy(() => import('../components/budget/BudgetOverview'));
 const DashboardDeferredSections = lazy(() => import('../components/dashboard/DashboardDeferredSections'));
+const prefetchDashboardChunks = [
+  () => import('../components/charts/SpendingDonut'),
+  () => import('../components/charts/MonthlyTrend'),
+  () => import('../components/budget/BudgetOverview'),
+  () => import('../components/dashboard/DashboardDeferredSections'),
+];
 
 function InsightLoadingState() {
   return (
@@ -101,6 +107,34 @@ export default function DashboardPage() {
   useEffect(() => {
     setShowDeferredSections(false);
   }, [user?.uid, currentMonth, demoMode]);
+
+  useEffect(() => {
+    let canceled = false;
+    const warmup = () => {
+      if (canceled) return;
+      prefetchDashboardChunks.forEach((load) => {
+        load().catch(() => {
+          // Non-blocking preload.
+        });
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      const id = (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(warmup);
+      return () => {
+        canceled = true;
+        if ('cancelIdleCallback' in window) {
+          (window as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(id);
+        }
+      };
+    }
+
+    const timeout = window.setTimeout(warmup, 300);
+    return () => {
+      canceled = true;
+      window.clearTimeout(timeout);
+    };
+  }, []);
 
   useEffect(() => {
     if (loading) return;

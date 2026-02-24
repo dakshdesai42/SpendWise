@@ -1,4 +1,4 @@
-import { useState, useRef, ReactNode } from 'react';
+import { useState, useRef, ReactNode, useEffect } from 'react';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { HiArrowPath } from 'react-icons/hi2';
 import { hapticMedium, hapticSuccess } from '../../utils/haptics';
@@ -10,6 +10,9 @@ export default function PullToRefresh({ onRefresh, children }: { onRefresh: () =
     const startY = useRef(0);
     const currentY = useRef(0);
     const pastThreshold = useRef(false);
+    const scrollContainerRef = useRef<HTMLElement | null>(null);
+    const rafRef = useRef<number | null>(null);
+    const pendingPullRef = useRef<number | null>(null);
 
     const THRESHOLD = 80;
 
@@ -17,8 +20,37 @@ export default function PullToRefresh({ onRefresh, children }: { onRefresh: () =
     const spinnerRotate = useTransform(ySpring, [0, THRESHOLD], [0, 180]);
     const spinnerOpacity = useTransform(ySpring, [0, THRESHOLD * 0.5, THRESHOLD], [0, 0.5, 1]);
 
+    useEffect(() => {
+        return () => {
+            if (rafRef.current) {
+                window.cancelAnimationFrame(rafRef.current);
+                rafRef.current = null;
+            }
+        };
+    }, []);
+
+    const schedulePullUpdate = (pull: number) => {
+        pendingPullRef.current = pull;
+        if (rafRef.current !== null) return;
+        rafRef.current = window.requestAnimationFrame(() => {
+            rafRef.current = null;
+            if (pendingPullRef.current !== null) {
+                ySpring.set(pendingPullRef.current);
+                pendingPullRef.current = null;
+            }
+        });
+    };
+
+    const getScrollContainer = () => {
+        if (!scrollContainerRef.current) {
+            scrollContainerRef.current = document.querySelector('[data-scroll-container="app-main"]') as HTMLElement | null;
+        }
+        return scrollContainerRef.current;
+    };
+
     const handleTouchStart = (e: React.TouchEvent) => {
-        const scrollContainer = document.querySelector('[data-scroll-container="app-main"]');
+        scrollContainerRef.current = null;
+        const scrollContainer = getScrollContainer();
         if (scrollContainer && scrollContainer.scrollTop > 0) return;
 
         startY.current = e.touches[0].clientY;
@@ -30,7 +62,7 @@ export default function PullToRefresh({ onRefresh, children }: { onRefresh: () =
     const handleTouchMove = (e: React.TouchEvent) => {
         if (!isPulling || isRefreshing) return;
 
-        const scrollContainer = document.querySelector('[data-scroll-container="app-main"]');
+        const scrollContainer = getScrollContainer();
         if (scrollContainer && scrollContainer.scrollTop > 0) return;
 
         currentY.current = e.touches[0].clientY;
@@ -40,7 +72,7 @@ export default function PullToRefresh({ onRefresh, children }: { onRefresh: () =
         if (deltaY > 0) {
             if (e.cancelable) e.preventDefault(); // Prevent native scroll bounce
             const pull = deltaY * 0.4;
-            ySpring.set(pull);
+            schedulePullUpdate(pull);
 
             if (pull >= THRESHOLD && !pastThreshold.current) {
                 pastThreshold.current = true;
@@ -58,17 +90,17 @@ export default function PullToRefresh({ onRefresh, children }: { onRefresh: () =
         const pull = ySpring.get();
         if (pull >= THRESHOLD) {
             setIsRefreshing(true);
-            ySpring.set(60); // Hold at spinner height
+            schedulePullUpdate(60); // Hold at spinner height
 
             try {
                 await onRefresh();
                 hapticSuccess();
             } finally {
                 setIsRefreshing(false);
-                ySpring.set(0);
+                schedulePullUpdate(0);
             }
         } else {
-            ySpring.set(0); // Snap back
+            schedulePullUpdate(0); // Snap back
         }
     };
 

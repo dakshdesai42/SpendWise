@@ -30,16 +30,44 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.classList.add('modal-open');
-    } else {
-      document.body.style.overflow = '';
-      document.documentElement.classList.remove('modal-open');
+    const root = document.documentElement;
+    const body = document.body;
+    const activeLocks = Number(root.dataset.modalLocks || '0');
+
+    if (!isOpen) {
+      return;
     }
+
+    if (activeLocks === 0) {
+      root.dataset.modalScrollY = String(window.scrollY || 0);
+      body.style.position = 'fixed';
+      body.style.top = `-${root.dataset.modalScrollY}px`;
+      body.style.left = '0';
+      body.style.right = '0';
+      body.style.width = '100%';
+      body.style.overflow = 'hidden';
+      root.classList.add('modal-open');
+    }
+
+    root.dataset.modalLocks = String(activeLocks + 1);
+
     return () => {
-      document.body.style.overflow = '';
-      document.documentElement.classList.remove('modal-open');
+      const currentLocks = Number(root.dataset.modalLocks || '0');
+      const nextLocks = Math.max(0, currentLocks - 1);
+      root.dataset.modalLocks = String(nextLocks);
+
+      if (nextLocks > 0) return;
+
+      const scrollY = Number(root.dataset.modalScrollY || '0');
+      body.style.position = '';
+      body.style.top = '';
+      body.style.left = '';
+      body.style.right = '';
+      body.style.width = '';
+      body.style.overflow = '';
+      root.classList.remove('modal-open');
+      window.scrollTo(0, scrollY);
+      delete root.dataset.modalScrollY;
     };
   }, [isOpen]);
 
