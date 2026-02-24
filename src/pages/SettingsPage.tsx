@@ -16,9 +16,12 @@ import { useAuth } from '../context/AuthContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { POPULAR_CURRENCIES, ACHIEVEMENTS } from '../utils/constants';
 import { containerVariants, itemVariants } from '../utils/animations';
+import GlassCard from '../components/ui/GlassCard';
+import Button from '../components/ui/Button';
+import Select from '../components/ui/Select';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import type { BankConnection } from '../types/bank';
 import toast from 'react-hot-toast';
-import { HiChevronRight, HiCurrencyDollar, HiBuildingLibrary, HiCheckCircle, HiArrowPath, HiXMark } from 'react-icons/hi2';
 
 const currencyOptions = POPULAR_CURRENCIES.map((c) => ({
   value: c.code,
@@ -184,202 +187,198 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <div className="app-page-header px-4 mb-2">
-        <h2 className="text-[34px] font-bold tracking-tight text-white mb-1">Settings</h2>
+      <div className="app-page-header">
+        <h2 className="text-xl lg:text-2xl font-bold tracking-tight text-text-primary">Settings</h2>
+        <p className="text-sm text-text-secondary mt-1">Manage your preferences</p>
       </div>
 
       <motion.div
         variants={containerVariants}
         initial="initial"
         animate="animate"
-        className="space-y-8 mt-2 pb-24"
+        className="space-y-6 mt-3"
       >
-        {/* Account Header */}
-        <motion.div variants={itemVariants} className="px-4">
-          <div className="bg-[#1C1C1E] rounded-[10px] p-4 flex items-center gap-4 shadow-sm">
-            <div className="w-16 h-16 rounded-full bg-[#2C2C2E] flex items-center justify-center text-[28px] font-normal text-white">
+        {/* Account */}
+        <motion.div variants={itemVariants}>
+          <div className="flex flex-col items-center justify-center text-center py-8">
+            <div className="w-24 h-24 rounded-full bg-[#18181A] border border-white/[0.06] shadow-[0_16px_48px_rgba(0,0,0,0.8)] mb-6 flex items-center justify-center text-4xl font-light text-white font-serif uppercase">
               {profile?.displayName?.trim().charAt(0) || 'U'}
             </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-[20px] font-semibold text-white tracking-tight truncate mb-0.5">{profile?.displayName || 'User'}</h2>
-              <p className="text-[15px] text-[#8E8E93] truncate mb-1.5">{profile?.email || user?.email}</p>
-              <div className="inline-flex items-center rounded-md bg-[#2C2C2E] px-2 py-0.5 text-[12px] text-white font-medium">
-                🔥 {profile?.currentStreak || 0} Day Streak
-              </div>
+            <h2 className="text-2xl font-semibold text-white mb-1 tracking-tight">{profile?.displayName || 'User'}</h2>
+            <p className="text-[14px] text-white/40 mb-6 font-medium">{profile?.email || user?.email}</p>
+            <div className="inline-flex items-center rounded-full bg-[#18181A] border border-white/[0.06] px-5 py-2.5 text-[13px] text-white font-medium shadow-[0_4px_16px_rgba(0,0,0,0.5)]">
+              🔥 {profile?.currentStreak || 0} Day Streak <span className="text-white/20 mx-2">|</span> <span className="text-white/50">Best: {profile?.longestStreak || 0}</span>
             </div>
           </div>
         </motion.div>
 
-        {/* Currencies Inset Group */}
+        {/* Currencies */}
         <motion.div variants={itemVariants}>
-          <div className="mb-2 px-8">
-            <h3 className="text-[13px] font-normal text-[#8E8E93] uppercase tracking-wide">Preferences</h3>
-          </div>
-          <div className="mx-4 bg-[#1C1C1E] rounded-[10px] overflow-hidden">
-            {/* Home Currency Row */}
-            <div className="px-4 py-2.5 flex items-center justify-between border-b border-[#38383A]">
-              <div className="flex items-center gap-3.5">
-                <div className="w-[30px] h-[30px] rounded-[7px] bg-[#34C759] flex items-center justify-center text-white">
-                  <HiCurrencyDollar className="w-5 h-5" />
-                </div>
-                <span className="text-[17px] text-white">Home Currency</span>
-              </div>
-              <div className="flex items-center gap-1 max-w-[50%]">
-                <select
-                  value={homeCurr}
-                  onChange={(e) => setHomeCurr(e.target.value)}
-                  className="bg-transparent text-[17px] text-[#8E8E93] text-right focus:outline-none appearance-none truncate w-full"
-                  dir="rtl"
-                >
-                  {currencyOptions.map(o => <option key={o.value} value={o.value} className="text-black text-left">{o.value}</option>)}
-                </select>
-                <HiChevronRight className="w-5 h-5 text-[#3A3A3C] shrink-0" />
-              </div>
-            </div>
+          <GlassCard className="p-6 md:p-7">
+            <h3 className="text-sm font-medium text-text-secondary mb-4">Currencies</h3>
+            <div className="space-y-4">
+              <Select
+                label="Home Currency (where you're from)"
+                value={homeCurr}
+                onChange={(e: any) => setHomeCurr(e.target.value)}
+                options={currencyOptions}
+              />
+              <Select
+                label="Host Currency (where you study)"
+                value={hostCurr}
+                onChange={(e: any) => setHostCurr(e.target.value)}
+                options={currencyOptions}
+              />
 
-            {/* Host Currency Row */}
-            <div className="px-4 py-2.5 flex items-center justify-between border-b border-[#38383A]">
-              <div className="flex items-center gap-3.5">
-                <div className="w-[30px] h-[30px] rounded-[7px] bg-[#0A84FF] flex items-center justify-center text-white">
-                  <HiCurrencyDollar className="w-5 h-5" />
+              {homeCurr && hostCurr && (
+                <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] p-3">
+                  <p className="text-xs text-text-tertiary">Current rate</p>
+                  <p className="text-sm font-medium text-text-primary">
+                    1 {hostCurr} = {rate.toFixed(4)} {homeCurr}
+                  </p>
                 </div>
-                <span className="text-[17px] text-white">Host Currency</span>
-              </div>
-              <div className="flex items-center gap-1 max-w-[50%]">
-                <select
-                  value={hostCurr}
-                  onChange={(e) => setHostCurr(e.target.value)}
-                  className="bg-transparent text-[17px] text-[#8E8E93] text-right focus:outline-none appearance-none truncate w-full"
-                  dir="rtl"
-                >
-                  {currencyOptions.map(o => <option key={o.value} value={o.value} className="text-black text-left">{o.value}</option>)}
-                </select>
-                <HiChevronRight className="w-5 h-5 text-[#3A3A3C] shrink-0" />
-              </div>
-            </div>
+              )}
 
-            {/* Save Button Row */}
-            <button
-              onClick={handleSaveCurrencies}
-              disabled={homeCurr === profile?.homeCurrency && hostCurr === profile?.hostCurrency}
-              className="w-full px-4 py-3 flex items-center bg-[#1C1C1E] active:bg-[#2C2C2E] transition-colors disabled:opacity-50"
-            >
-              <span className="text-[17px] text-[#0A84FF]">
-                {saving ? 'Saving...' : 'Save Changes'}
-              </span>
-            </button>
-          </div>
-          {homeCurr && hostCurr && (
-            <div className="mt-2 px-8">
-              <p className="text-[13px] text-[#8E8E93]">Exchange rate: 1 {hostCurr} = {rate.toFixed(4)} {homeCurr}</p>
+              <Button
+                onClick={handleSaveCurrencies}
+                loading={saving}
+                disabled={homeCurr === profile?.homeCurrency && hostCurr === profile?.hostCurrency}
+                className="w-full"
+              >
+                Save Currencies
+              </Button>
             </div>
-          )}
+          </GlassCard>
         </motion.div>
 
-        {/* Bank Connections Inset Group */}
+        {/* Achievements */}
         <motion.div variants={itemVariants}>
-          <div className="mb-2 px-8 flex justify-between items-end">
-            <h3 className="text-[13px] font-normal text-[#8E8E93] uppercase tracking-wide">Bank Sync</h3>
-            {!demoMode && (
-              <button onClick={() => handleSyncBank()} disabled={!connections.length || linkingBank} className="text-[13px] text-[#0A84FF] font-medium active:opacity-60 disabled:opacity-50">
-                {syncingConnectionId === '__all__' ? 'Syncing...' : 'Sync All'}
-              </button>
-            )}
-          </div>
+          <GlassCard className="p-6 md:p-7">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-sm font-medium text-text-secondary">Bank Connections (Beta)</h3>
+                <p className="text-xs text-text-tertiary mt-1">
+                  Link your bank account to import card transactions automatically.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleLinkBank}
+                loading={linkingBank}
+                disabled={!user || demoMode}
+              >
+                Link Bank
+              </Button>
+            </div>
 
-          <div className="mx-4 bg-[#1C1C1E] rounded-[10px] overflow-hidden">
             {demoMode ? (
-              <div className="px-4 py-3 text-[17px] text-[#8E8E93]">Unavailable in Demo Mode</div>
+              <p className="text-sm text-text-tertiary">
+                Bank linking is unavailable in demo mode.
+              </p>
             ) : loadingConnections ? (
-              <div className="px-4 py-3 text-[17px] text-[#8E8E93] flex items-center gap-2">
-                <HiArrowPath className="w-4 h-4 animate-spin text-[#8E8E93]" /> Loading...
+              <div className="flex items-center gap-3 py-3">
+                <LoadingSpinner size="sm" />
+                <p className="text-sm text-text-tertiary">Loading linked accounts...</p>
               </div>
             ) : connections.length === 0 ? (
-              <div className="px-4 py-3 text-[17px] text-[#8E8E93]">No linked accounts</div>
+              <p className="text-sm text-text-tertiary">
+                No linked bank accounts yet.
+              </p>
             ) : (
-              connections.map((conn, index) => (
-                <div key={conn.id} className={`px-4 py-2.5 flex items-center justify-between ${index < connections.length - 1 ? 'border-b border-[#38383A]' : ''}`}>
-                  <div className="flex items-center gap-3.5 overflow-hidden">
-                    <div className="w-[30px] h-[30px] rounded-[7px] bg-[#5E5CE6] flex items-center justify-center text-white shrink-0">
-                      <HiBuildingLibrary className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0 pr-4">
-                      <p className="text-[17px] text-white truncate">{conn.institutionName}</p>
-                      <p className="text-[13px] text-[#8E8E93] truncate">{conn.accountCount} accts • {formatSyncTime(conn.lastSyncedAt)}</p>
+              <div className="space-y-3">
+                {connections.map((connection) => (
+                  <div
+                    key={connection.id}
+                    className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">
+                          {connection.institutionName}
+                        </p>
+                        <p className="text-xs text-text-tertiary mt-1">
+                          {connection.accountCount} account{connection.accountCount === 1 ? '' : 's'} • {connection.status}
+                        </p>
+                        <p className="text-xs text-text-tertiary mt-1">
+                          {formatSyncTime(connection.lastSyncedAt)}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          loading={syncingConnectionId === connection.id}
+                          onClick={() => handleSyncBank(connection.id)}
+                          disabled={disconnectingConnectionId === connection.id}
+                        >
+                          Sync
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          loading={disconnectingConnectionId === connection.id}
+                          onClick={() => handleDisconnectBank(connection.id)}
+                          disabled={syncingConnectionId === connection.id}
+                        >
+                          Disconnect
+                        </Button>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="flex gap-2 shrink-0">
-                    <button
-                      onClick={() => handleSyncBank(conn.id)}
-                      disabled={disconnectingConnectionId === conn.id || syncingConnectionId === conn.id}
-                      className="p-1.5 bg-[#2C2C2E] rounded-full text-white active:bg-[#38383A] disabled:opacity-50"
-                    >
-                      <HiArrowPath className={`w-4 h-4 ${syncingConnectionId === conn.id ? 'animate-spin text-[#0A84FF]' : ''}`} />
-                    </button>
-                    <button
-                      onClick={() => handleDisconnectBank(conn.id)}
-                      disabled={disconnectingConnectionId === conn.id || syncingConnectionId === conn.id}
-                      className="p-1.5 bg-[#2C2C2E] rounded-full text-[#FF453A] active:bg-[#ff453A]/20 disabled:opacity-50"
-                    >
-                      <HiXMark className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
 
             {!demoMode && (
-              <button
-                onClick={handleLinkBank}
-                disabled={linkingBank}
-                className="w-full px-4 py-3 border-t border-[#38383A] flex items-center bg-[#1C1C1E] active:bg-[#2C2C2E] transition-colors"
-              >
-                <span className="text-[17px] text-[#0A84FF]">
-                  {linkingBank ? 'Connecting...' : 'Add Account...'}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => handleSyncBank()}
+                  loading={syncingConnectionId === '__all__'}
+                  disabled={!connections.length || linkingBank}
+                >
+                  Sync All
+                </Button>
+                <span className="text-[11px] text-text-tertiary">
+                  Requires backend API at <code className="font-mono">VITE_BANK_API_BASE_URL</code>.
                 </span>
-              </button>
+              </div>
             )}
-          </div>
+          </GlassCard>
         </motion.div>
 
-        {/* Achievements Group */}
+        {/* Achievements */}
         <motion.div variants={itemVariants}>
-          <div className="mb-2 px-8">
-            <h3 className="text-[13px] font-normal text-[#8E8E93] uppercase tracking-wide">Achievements</h3>
-          </div>
-          <div className="mx-4 bg-[#1C1C1E] rounded-[10px] overflow-hidden">
-            {ACHIEVEMENTS.map((a, index) => {
-              const unlocked = userAchievements.includes(a.id);
-              return (
-                <div key={a.id} className={`px-4 py-2.5 flex items-center justify-between ${index < ACHIEVEMENTS.length - 1 ? 'border-b border-[#38383A]' : ''}`}>
-                  <div className="flex items-center gap-3.5 overflow-hidden">
-                    <div className={`w-[30px] h-[30px] rounded-[7px] flex items-center justify-center shrink-0 ${unlocked ? 'bg-[#FF9F0A]' : 'bg-[#2C2C2E] grayscale'}`}>
-                      <span className="text-sm drop-shadow-sm">{a.icon}</span>
-                    </div>
-                    <div className="min-w-0 pr-2">
-                      <p className={`text-[17px] truncate ${unlocked ? 'text-white' : 'text-[#8E8E93]'}`}>{a.label}</p>
-                      <p className="text-[13px] text-[#8E8E93] truncate">{a.description}</p>
-                    </div>
+          <GlassCard className="p-6 md:p-7">
+            <h3 className="text-sm font-medium text-text-secondary mb-4">Achievements</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {ACHIEVEMENTS.map((a) => {
+                const unlocked = userAchievements.includes(a.id);
+                return (
+                  <div
+                    key={a.id}
+                    className={`p-3 rounded-xl border transition-colors ${unlocked
+                      ? 'border-accent-primary/30 bg-accent-primary/5'
+                      : 'border-white/[0.04] bg-white/[0.02] opacity-40'
+                      }`}
+                  >
+                    <span className="text-2xl">{a.icon}</span>
+                    <p className="text-xs font-medium text-text-primary mt-1">{a.label}</p>
+                    <p className="text-[10px] text-text-tertiary mt-0.5">{a.description}</p>
                   </div>
-                  {unlocked && (
-                    <div className="shrink-0 text-[#34C759]">
-                      <HiCheckCircle className="w-5 h-5" />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </GlassCard>
         </motion.div>
 
-        {/* Sign Out */}
-        <motion.div variants={itemVariants} className="pt-2 px-4">
+        <motion.div variants={itemVariants} className="pt-4 pb-20">
           <button
             onClick={handleSignOut}
-            className="w-full bg-[#1C1C1E] rounded-[10px] p-3 text-center active:bg-[#2C2C2E] transition-colors"
+            className="w-full flex items-center justify-center p-4 rounded-[20px] bg-[#FF453A]/10 text-[#FF453A] font-medium transition-all hover:bg-[#FF453A]/20 hover:shadow-[0_0_24px_rgba(255,69,58,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF453A]/50"
           >
-            <span className="text-[17px] text-[#FF453A]">Sign Out</span>
+            Sign Out
           </button>
         </motion.div>
       </motion.div>
