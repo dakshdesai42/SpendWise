@@ -19,7 +19,7 @@ import {
 import { endOfMonth, startOfMonth } from 'date-fns';
 import { Expense, MonthlySummary } from '../types/models';
 import { getDb } from './firebase';
-import { endOfDayLocal, formatMonthKey, parseLocalDate, parseMonthKey, startOfDayLocal } from '../utils/date';
+import { endOfDayLocal, formatDayKey, formatMonthKey, parseLocalDate, parseMonthKey, startOfDayLocal } from '../utils/date';
 
 function expensesRef(userId: string) {
   return collection(getDb(), 'users', userId, 'expenses');
@@ -338,7 +338,7 @@ export async function deleteFutureRecurringOccurrences(
     where('recurringOccurrenceKey', '>=', recurringKeyPrefix),
     where('recurringOccurrenceKey', '<=', `${recurringKeyPrefix}\uf8ff`)
   );
-  let recurringByKeyDocs: Awaited<ReturnType<typeof getDocs>>['docs'] = [];
+  let recurringByKeyDocs: typeof recurringByIdSnapshot.docs = [];
   try {
     const recurringByKeySnapshot = await getDocs(recurringExpensesByKeyQuery);
     recurringByKeyDocs = recurringByKeySnapshot.docs;

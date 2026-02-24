@@ -12,16 +12,9 @@ import {
 } from 'firebase/firestore';
 import {
   addDays,
-  addMonths,
   addWeeks,
-  addYears,
-  differenceInCalendarDays,
-  differenceInCalendarMonths,
-  differenceInCalendarYears,
   endOfMonth,
   isAfter,
-  isBefore,
-  isSameDay,
   startOfMonth,
 } from 'date-fns';
 import { getDb } from './firebase';
@@ -168,79 +161,99 @@ async function cleanupDuplicateRecurringInMonth(userId: string, month: string, e
   };
 }
 
-function addMonthsAnchored(date: Date, months: number, anchorDay: number): Date {
-  const next = new Date(date);
-  next.setDate(1);
-  next.setMonth(next.getMonth() + months);
-  const monthLastDay = endOfMonth(next).getDate();
-  next.setDate(Math.min(anchorDay, monthLastDay));
-  return next;
+// ---------------------------------------------------------------------------
+// Simple date helpers for recurring occurrence generation
+// ---------------------------------------------------------------------------
+
+/** Safely convert any date-like value (Date, string, Firestore Timestamp) to a Date. */
+function toSafeDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+  if (typeof value === 'object' && 'toDate' in value) {
+    try { return (value as { toDate: () => Date }).toDate(); } catch { return null; }
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const d = parseLocalDate(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
 }
 
-function addYearsAnchored(date: Date, years: number, anchorMonth: number, anchorDay: number): Date {
-  const next = new Date(date);
-  next.setDate(1);
-  next.setFullYear(next.getFullYear() + years, anchorMonth, 1);
-  const monthLastDay = endOfMonth(next).getDate();
-  next.setDate(Math.min(anchorDay, monthLastDay));
-  return next;
+/** Advance a date by one frequency step, keeping the original day-of-month anchored. */
+function stepOnce(date: Date, frequency: Frequency, anchorDay: number): Date {
+  switch (frequency) {
+    case 'daily':
+      return addDays(date, 1);
+    case 'weekly':
+      return addWeeks(date, 1);
+    case 'yearly': {
+      const next = new Date(date);
+      next.setFullYear(next.getFullYear() + 1);
+      // Clamp to month length (e.g. Feb 28/29 for anchor day 31)
+      const maxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+      next.setDate(Math.min(anchorDay, maxDay));
+      return next;
+    }
+    default: { // monthly
+      const next = new Date(date);
+      next.setMonth(next.getMonth() + 1);
+      const maxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+      next.setDate(Math.min(anchorDay, maxDay));
+      return next;
+    }
+  }
 }
 
-function stepDate(date: Date, frequency: Frequency, anchorDay: number, anchorMonth: number): Date {
-  if (frequency === 'daily') return addDays(date, 1);
-  if (frequency === 'weekly') return addWeeks(date, 1);
-  if (frequency === 'yearly') return addYearsAnchored(date, 1, anchorMonth, anchorDay);
-  return addMonthsAnchored(date, 1, anchorDay);
-}
-
-function alignCursorToRangeStart(first: Date, start: Date, frequency: Frequency, anchorDay: number, anchorMonth: number): Date {
+/** Jump cursor forward close to rangeStart without overshooting, then walk the rest. */
+function jumpNear(first: Date, rangeStart: Date, frequency: Frequency, anchorDay: number): Date {
   let cursor = new Date(first);
-  if (!isBefore(cursor, start)) return cursor;
+  if (cursor >= rangeStart) return cursor;
 
   if (frequency === 'daily') {
-    const jump = differenceInCalendarDays(start, cursor);
-    cursor = addDays(cursor, Math.max(jump, 0));
-    return cursor;
+    const daysBetween = Math.floor((rangeStart.getTime() - cursor.getTime()) / 86_400_000);
+    cursor = addDays(cursor, Math.max(daysBetween - 1, 0));
+  } else if (frequency === 'weekly') {
+    const weeksBetween = Math.floor((rangeStart.getTime() - cursor.getTime()) / (7 * 86_400_000));
+    cursor = addWeeks(cursor, Math.max(weeksBetween - 1, 0));
+  } else if (frequency === 'monthly') {
+    const monthsBetween = (rangeStart.getFullYear() - cursor.getFullYear()) * 12
+      + (rangeStart.getMonth() - cursor.getMonth());
+    if (monthsBetween > 1) {
+      cursor = new Date(cursor);
+      cursor.setMonth(cursor.getMonth() + monthsBetween - 1);
+      const maxDay = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+      cursor.setDate(Math.min(anchorDay, maxDay));
+    }
+  } else { // yearly
+    const yearsBetween = rangeStart.getFullYear() - cursor.getFullYear();
+    if (yearsBetween > 1) {
+      cursor = new Date(cursor);
+      cursor.setFullYear(cursor.getFullYear() + yearsBetween - 1);
+      const maxDay = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+      cursor.setDate(Math.min(anchorDay, maxDay));
+    }
   }
 
-  if (frequency === 'weekly') {
-    const jumpWeeks = Math.floor(differenceInCalendarDays(start, cursor) / 7);
-    cursor = addWeeks(cursor, Math.max(jumpWeeks, 0));
-    while (isBefore(cursor, start)) cursor = addWeeks(cursor, 1);
-    return cursor;
+  // Walk forward until we reach or pass rangeStart (max 60 steps as safety)
+  for (let i = 0; i < 60 && cursor < rangeStart; i++) {
+    cursor = stepOnce(cursor, frequency, anchorDay);
   }
-
-  if (frequency === 'monthly') {
-    const jumpMonths = differenceInCalendarMonths(start, cursor);
-    if (jumpMonths > 0) cursor = addMonthsAnchored(cursor, jumpMonths, anchorDay);
-    while (isBefore(cursor, start)) cursor = addMonthsAnchored(cursor, 1, anchorDay);
-    return cursor;
-  }
-
-  const jumpYears = differenceInCalendarYears(start, cursor);
-  if (jumpYears > 0) cursor = addYearsAnchored(cursor, jumpYears, anchorMonth, anchorDay);
-  while (isBefore(cursor, start)) cursor = addYearsAnchored(cursor, 1, anchorMonth, anchorDay);
   return cursor;
 }
 
 function getOccurrencesInMonth(recurringExpense: RecurringBill, month: string): Date[] {
   const start = startOfMonth(parseMonthKey(month));
   const end = endOfMonth(start);
-  if (!recurringExpense.startDate) return [];
-  const first = parseLocalDate(recurringExpense.startDate);
-  if (isAfter(first, end)) return [];
+  const first = toSafeDate(recurringExpense.startDate);
+  if (!first || first > end) return [];
   const frequency = normalizeFrequency(recurringExpense.frequency);
   const anchorDay = first.getDate();
-  const anchorMonth = first.getMonth();
 
-  let cursor = alignCursorToRangeStart(first, start, frequency, anchorDay, anchorMonth);
+  let cursor = jumpNear(first, start, frequency, anchorDay);
   const occurrences: Date[] = [];
-  for (let i = 0; i < 2500; i++) {
-    if (isAfter(cursor, end)) break;
-    if (!isBefore(cursor, start) || isSameDay(cursor, start)) {
-      occurrences.push(new Date(cursor));
-    }
-    cursor = stepDate(cursor, frequency, anchorDay, anchorMonth);
+  for (let i = 0; i < 100 && cursor <= end; i++) {
+    if (cursor >= start) occurrences.push(new Date(cursor));
+    cursor = stepOnce(cursor, frequency, anchorDay);
   }
   return occurrences;
 }
@@ -328,23 +341,33 @@ export async function reactivateAllRecurringRules(userId: string): Promise<numbe
   return reactivated;
 }
 
-export function getUpcomingRecurringBills(recurring: RecurringBill[], fromDate: Date | string = new Date(), days = 30): UpcomingBill[] {
+/**
+ * Generate upcoming bill occurrences for a list of recurring rules.
+ * Pure function — no Firestore calls. Works for both demo and real data.
+ */
+export function getUpcomingRecurringBills(
+  recurring: RecurringBill[],
+  fromDate: Date | string = new Date(),
+  days = 30
+): UpcomingBill[] {
   const start = startOfDayLocal(fromDate);
   const end = addDays(start, days);
   const upcoming: UpcomingBill[] = [];
 
-  for (const rec of recurring.filter((r) => isRecurringRuleActive(r.isActive))) {
+  for (const rec of recurring) {
+    if (!isRecurringRuleActive(rec.isActive)) continue;
     if (!Number.isFinite(rec.amount) || rec.amount <= 0) continue;
-    if (!rec.startDate) continue;
-    const first = parseLocalDate(rec.startDate);
+
+    const first = toSafeDate(rec.startDate);
+    if (!first) continue;
+
     const frequency = normalizeFrequency(rec.frequency);
     const anchorDay = first.getDate();
-    const anchorMonth = first.getMonth();
-    let cursor = alignCursorToRangeStart(first, start, frequency, anchorDay, anchorMonth);
+    let cursor = jumpNear(first, start, frequency, anchorDay);
 
-    for (let i = 0; i < 4000; i++) {
-      if (isAfter(cursor, end)) break;
-      if ((!isBefore(cursor, start) || isSameDay(cursor, start)) && !isAfter(cursor, end)) {
+    // Collect occurrences within [start, end]. Max 60 as safety.
+    for (let i = 0; i < 60 && cursor <= end; i++) {
+      if (cursor >= start) {
         upcoming.push({
           recurringId: rec.id,
           dueDate: new Date(cursor),
@@ -354,45 +377,17 @@ export function getUpcomingRecurringBills(recurring: RecurringBill[], fromDate: 
           frequency: rec.frequency,
         });
       }
-      cursor = stepDate(cursor, frequency, anchorDay, anchorMonth);
+      cursor = stepOnce(cursor, frequency, anchorDay);
     }
   }
 
   return upcoming.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
 }
 
-function getMonthKeysInRange(start: Date, end: Date): string[] {
-  const keys: string[] = [];
-  let cursor = startOfMonth(start);
-  const endMonth = startOfMonth(end);
-  for (let i = 0; i < 24; i++) {
-    if (isAfter(cursor, endMonth)) break;
-    keys.push(formatDayKey(startOfMonth(cursor)).slice(0, 7));
-    cursor = addMonths(cursor, 1);
-  }
-  return keys;
-}
-
-async function getSkippedOccurrenceKeysInRange(userId: string, fromDate: Date | string, days = 30): Promise<Set<string>> {
-  const start = startOfDayLocal(fromDate);
-  const end = addDays(start, days);
-  const months = getMonthKeysInRange(start, end);
-  const sets = await Promise.all(
-    months.map(async (month) => {
-      try {
-        return await getRecurringSkipKeysForMonth(userId, month);
-      } catch {
-        return new Set<string>();
-      }
-    })
-  );
-  const merged = new Set<string>();
-  for (const set of sets) {
-    for (const key of set) merged.add(key);
-  }
-  return merged;
-}
-
+/**
+ * Like getUpcomingRecurringBills, but also filters out skipped occurrences
+ * for a real user. Makes one Firestore call per month in the range.
+ */
 export async function getUpcomingRecurringBillsForUser(
   userId: string,
   recurring: RecurringBill[],
@@ -402,12 +397,25 @@ export async function getUpcomingRecurringBillsForUser(
   const upcoming = getUpcomingRecurringBills(recurring, fromDate, days);
   if (upcoming.length === 0) return upcoming;
 
-  const skippedKeys = await getSkippedOccurrenceKeysInRange(userId, fromDate, days);
-  if (skippedKeys.size === 0) return upcoming;
+  // Collect the unique months covered by the upcoming bills
+  const months = new Set<string>();
+  for (const bill of upcoming) {
+    months.add(formatDayKey(bill.dueDate).slice(0, 7));
+  }
+
+  // Load skip keys for those months (swallow errors per month)
+  const allSkipped = new Set<string>();
+  for (const month of months) {
+    try {
+      const keys = await getRecurringSkipKeysForMonth(userId, month);
+      for (const k of keys) allSkipped.add(k);
+    } catch { /* ignore — treat as no skips */ }
+  }
+
+  if (allSkipped.size === 0) return upcoming;
 
   return upcoming.filter((bill) => {
     if (!bill.recurringId) return true;
-    const key = `${bill.recurringId}:${formatDayKey(bill.dueDate)}`;
-    return !skippedKeys.has(key);
+    return !allSkipped.has(`${bill.recurringId}:${formatDayKey(bill.dueDate)}`);
   });
 }
