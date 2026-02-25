@@ -38,7 +38,7 @@ function CategoryRow({
   return (
     <div
       className={clsx(
-        'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors',
+        'flex items-center gap-3 px-3 py-[7px] rounded-xl transition-colors',
         hasValue ? 'bg-white/[0.04]' : 'bg-transparent'
       )}
     >
@@ -211,9 +211,9 @@ export default function BudgetForm({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
-      <div className="pt-2 pb-2 min-h-[280px]">
+      <div className="pt-2 pb-2">
         {/* Step indicator dots */}
-        <div className="flex justify-center gap-2 mb-5">
+        <div className="flex justify-center gap-2 mb-3">
           {[1, 2].map((s) => (
             <div
               key={s}
@@ -316,7 +316,7 @@ export default function BudgetForm({
               transition={slideTransition}
             >
               {/* Header row: back / title / skip */}
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-3">
                 <button
                   type="button"
                   onClick={goBack}
@@ -343,7 +343,7 @@ export default function BudgetForm({
               </div>
 
               {/* Allocation summary bar */}
-              <div className="mb-4">
+              <div className="mb-3">
                 <div className="flex items-center justify-between text-[13px] mb-1.5">
                   <span className={clsx('font-medium', isOverAllocated ? 'text-red-400' : 'text-white/60')}>
                     Allocated {currencySymbol}{formatCompact(allocatedTotal)}
@@ -366,7 +366,7 @@ export default function BudgetForm({
               </div>
 
               {/* Category list */}
-              <div className="space-y-1 max-h-[40vh] overflow-y-auto overscroll-contain -mx-1 px-1">
+              <div className="max-h-[36vh] overflow-y-auto overscroll-contain -mx-1 px-1">
                 {CATEGORIES.map((cat) => (
                   <CategoryRow
                     key={cat.id}
@@ -378,7 +378,7 @@ export default function BudgetForm({
               </div>
 
               {/* Save button */}
-              <div className="pt-5 pb-2">
+              <div className="pt-3 pb-2">
                 <button
                   type="button"
                   onClick={handleSave}
